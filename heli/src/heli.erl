@@ -13,3 +13,7 @@
 start() ->
     wx:new(),
     heli_gl:start().
+
+start_link() ->
+    wx:new(),
+    heli_gl:start_link().
