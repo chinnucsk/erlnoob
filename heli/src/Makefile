@@ -14,7 +14,7 @@ TARGETS = $(MODULES:%=$(EBIN)/%.beam)
 all:    $(TARGETS)
 
 clean:
-	rm -f  $(TARGETS) erl_crash.dump
+	rm -f  $(TARGETS) $(EBIN)/erl_crash.dump
 
 $(EBIN)/%.beam: %.erl
 	$(ERLC) $(ERL_FLAGS) -o$(EBIN) $<
