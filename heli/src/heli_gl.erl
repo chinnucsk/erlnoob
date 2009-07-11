@@ -83,7 +83,7 @@ init_gl(Canvas) ->
     {W,H} = wxWindow:getClientSize(Canvas),
     gl:clearColor(1,1,1,1),
     gl:enable(?GL_TEXTURE_2D),
-    gl:enable(?GL_COLOR_MATERIAL),
+    %%gl:enable(?GL_COLOR_MATERIAL),
     gl:enable(?GL_BLEND),
     gl:disable(?GL_DEPTH_TEST),
     gl:blendFunc(?GL_SRC_ALPHA,?GL_ONE_MINUS_SRC_ALPHA),
@@ -132,13 +132,13 @@ terminate(_,_State) ->
 
 
 draw(#state{image = Tid, canvas = Canvas, circle = Circle, heli = Heli}) ->
-    gl:clear(?GL_COLOR_BUFFER_BIT),
+    gl:clear(?GL_COLOR_BUFFER_BIT bor ?GL_DEPTH_BUFFER_BIT),
 
     gl:matrixMode(?GL_MODELVIEW),
     gl:loadIdentity(),
 
     draw_sprite(Tid, {100,Heli}),
-    %%draw_map(Circle),
+    draw_map(Circle),
     wxGLCanvas:swapBuffers(Canvas).
 
 
@@ -160,14 +160,13 @@ draw_sprite(Tid, {X,Y}) ->
     gl:popMatrix().
     
 draw_map(Circle) ->
-    %%gl:pushMatrix(),
+    gl:color3f(0,0,0),
     gl:translatef(300,300, 0),
     gl:scalef(2.0,1, 1),
 
-    glu:quadricDrawStyle(Circle,?GLU_FILL),
+    glu:quadricDrawStyle(Circle,?GLU_LINE),
     glu:disk(Circle, 0, 100, 20, 1),
     ok.
-    %%gl:popMatrix().
 
 
 
