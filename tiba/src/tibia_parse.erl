@@ -50,8 +50,12 @@ build_characters([#player{name = Name}|Chars], Acc) ->
 			     (byte_size(<<"powerflip">>)):16/?UINT,(<<"powerflip">>)/binary,
 			     (list_to_binary([127,0,0,1]))/binary,7172:16/?UINT>>);
 build_characters([], Acc) ->
-    <<(byte_size(Acc)+3):16/?UINT,16#64:8/?UINT,Acc/binary,20:16/?UINT>>.
-    
+    <<16#64:8/?UINT,Acc/binary,20:16/?UINT>>.
+
+build_motd() ->
+    Motd = <<"Welcome to pflip.">>,
+    <<16#14,(byte_size(Motd)):16/?UINT,Motd/binary>>.
+
 get_characters(NumChars,Chars) ->
     get_characters(NumChars, Chars, []).
     
@@ -85,7 +89,7 @@ parse_client_packet(State, Packet) when State#state.account =:= undefined ->
 parse_client_packet(State, <<Checksum:32/?UINT,Msg/binary>>) ->
     Decrypted = xtea:decrypt(State#state.key, Msg),
     <<Size:16/?UINT, Msg2:Size/binary,_/binary>> = Decrypted,
-    <<RecvByte, Data/binary>> = Msg2,
+    <<RecvByte,  Data/binary>> = Msg2,
     case RecvByte of
 	16#14 ->
 	    gen_tcp:close(State#state.client_socket),
@@ -101,7 +105,7 @@ parse_client_packet(State, <<Checksum:32/?UINT,Msg/binary>>) ->
 	    gen_tcp:send(State#state.client_socket,
 			 Reply);
 	_ ->
-	    io:format("Msg: ~p\n", [Decrypted])
+	    io:format("Msg: ~p ~p\n", [RecvByte, Data])
     end,
     State.
 

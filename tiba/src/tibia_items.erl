@@ -77,7 +77,7 @@ test_otb() ->
 
 test_otb(Type) ->
     ok = load_otb("items.otb"),
-    A = ets:match_object(item_types, #item_type{client_id = Type,
+    A = ets:match_object(item_types, #item_type{server_id = Type,
 						_ = '_'}),
     ets:delete(item_types),
     A.

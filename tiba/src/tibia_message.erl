@@ -50,6 +50,10 @@ creature_turn(ID, #coord{x=X,y=Y,z=Z}, Dir) ->
     <<16#6B,
      X:16/?UINT,Y:16/?UINT,Z,
      1,
-     16#63,
+     16#63:16/?UINT,
      ID:32/?UINT,
      Dir>>.
+
+
+get_tile(Pos) ->
+    ok.

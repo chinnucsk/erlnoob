@@ -129,6 +129,8 @@ tcp_loop(State=#state{client_socket = ClientSocket,
 	Any ->
 	    io:format("tcp unknown message ~p\n", [Any]),
 	    ?MODULE:tcp_loop(State)
+    after 15 * 60 * 1000 ->
+	    gen_tcp:close(ClientSocket)
     end.
 
 verify_checksum(PacketChecksum, Message) ->
