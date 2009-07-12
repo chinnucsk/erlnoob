@@ -85,40 +85,41 @@ parse_first_game_packet(State, Msg) ->
 
 	      16#64, % Map description starts
 	      4,0, 4,0, 7, % Coord (X,Y,Z)
-	      117,255, % Skip , 16#FF
-	      168,17, % Tile grass - cid 4520 sid - 4531/9048
+	      (tibia_message:map_description(#coord{x=4,y=4,z=7},18,14))/binary,
+%% 	      117,255, % Skip , 16#FF
+%% 	      168,17, % Tile grass - cid 4520 sid - 4531/9048
 
-	      %% Creature start
-	      97,0, % Not known 16#61:16/?UINT
-	      0,0,0,0, % Remove
-	      233,3,0,16, % Creature ID
-	      (byte_size(<<"Svett">>)):16/?UINT, % Name len
-	      <<"Svett">>/binary, % Name
-	      0, % Health in percent, round((CurrentHP / MaxHP)*100).
- 	      2, % Direction 0-3   2 is facing down
-	      128,0, % Looktype
-	      %%0,0, % if looktype is 0 then show an item instead
-	      %%23,12, % axe ring
-	      44, % Look head
-	      44, % Look body
-	      44, % Look legs
-	      44, % Look feet
-	      0,  % Look addons
-	      0, % Light level
-	      0, % Light color
-	      220,0, % Char speed
-	      0, % Skull (0-5)
-	      0, % Party shield (0-10)
-	      %% Creature end
+%% 	      %% Creature start
+%% 	      97,0, % Not known 16#61:16/?UINT
+%% 	      0,0,0,0, % Remove
+%% 	      233,3,0,16, % Creature ID
+%% 	      (byte_size(<<"Svett">>)):16/?UINT, % Name len
+%% 	      <<"Svett">>/binary, % Name
+%% 	      0, % Health in percent, round((CurrentHP / MaxHP)*100).
+%%  	      2, % Direction 0-3   2 is facing down
+%% 	      128,0, % Looktype
+%% 	      %%0,0, % if looktype is 0 then show an item instead
+%% 	      %%23,12, % axe ring
+%% 	      44, % Look head
+%% 	      44, % Look body
+%% 	      44, % Look legs
+%% 	      44, % Look feet
+%% 	      0,  % Look addons
+%% 	      0, % Light level
+%% 	      0, % Light color
+%% 	      220,0, % Char speed
+%% 	      0, % Skull (0-5)
+%% 	      0, % Party shield (0-10)
+%% 	      %% Creature end
 
-	      255,255,
-	      255,255, % No tile
-	      255,255, % No tile
-	      255,255, % No tile
-	      255,255, % No tile
-	      255,255, % No tile
-	      255,255, % No tile
-	      105,255,
+%% 	      255,255,
+%% 	      255,255, % No tile
+%% 	      255,255, % No tile
+%% 	      255,255, % No tile
+%% 	      255,255, % No tile
+%% 	      255,255, % No tile
+%% 	      255,255, % No tile
+%% 	      105,255,
 	      131, % Magic effect
 	      4,0, 4,0, 7, % Magic effect pos (X,Y,Z)
 	      15, % Magic effect type

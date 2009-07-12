@@ -66,6 +66,7 @@
 -record(tile, {coord = #coord{},
 	       type,
 	       house_id,
+	       creatures = [],
 	       items,
 	       flags}).
 
@@ -76,3 +77,17 @@
 		 name,
 		 id,
 		 direction}).
+
+-record(outfit, {type,head,body,legs,feet,addons}).
+
+-record(creature, {type,
+		   id,
+		   name,
+		   max_health,
+		   health,
+		   direction,
+		   outfit,
+		   light,
+		   speed,
+		   skull,
+		   shield}).
