@@ -57,3 +57,52 @@ creature_turn(ID, #coord{x=X,y=Y,z=Z}, Dir) ->
 
 get_tile(Pos) ->
     ok.
+
+
+%% 16#20000000 - Player
+%% 16#30000000 - NPC
+%% 16#40000000 - Monster
+set_id() ->
+    16#20000000.
+
+
+map_description() ->
+    ok.
+
+
+floor_description() ->
+    ok.
+
+
+floor_description(Pos, Width,Height) ->
+    Pos2 = Pos#coord{x=Pos#coord.x-8,
+		     y=Pos#coord.y-6},
+    x(Pos2,0,Width,Height,-1, <<>>).
+
+x(Pos,NX,Width,Height,Skip,Acc) when NX < Width ->
+    {Acc2,Skip2} = y(Pos, {NX,0},Height,Skip, Acc),
+    io:format("\n", []),
+    x(Pos, NX+1, Width, Height,Skip2, Acc2);
+x(_,_,_,_,Skip,Acc) ->
+    {Acc,Skip}.
+
+y(Pos=#coord{x=X,y=Y},C={NX,NY},Height,Skip,Acc) when NY < Height ->
+    case ets:lookup(map, Pos#coord{x=X+NX,y=Y+NY}) of
+	[] ->
+	    if Skip =:= 16#FF ->
+		    y(Pos,{NX,NY+1},Height,-1,<<Acc/binary,16#FF,16#FF>>);
+	       true ->
+		    y(Pos,{NX,NY+1},Height,Skip+1,Acc)
+	    end;
+	[#tile{coord = Coord}] ->
+	    io:format("~p ", [Coord]),
+	    if Skip >= 0 ->
+		    y(Pos,{NX,NY+1},Height,0,<<Acc/binary,Skip,16#FF>>);
+	       true ->
+		    y(Pos,{NX,NY+1},Height,0,Acc) 
+	    end
+    end;
+y(_Pos, _C, _Height,Skip,Acc) ->
+    {Acc,Skip}.
+
+

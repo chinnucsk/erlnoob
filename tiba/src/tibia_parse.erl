@@ -26,6 +26,7 @@ parse_server_packet(State,Packet = <<Checksum:32/?UINT,Msg/binary>>) ->
 	    _ ->
 		<<(size(Packet)):16/?UINT,Packet/binary>>
 	end,
+    %%io:format("", []),
     gen_tcp:send(State#state.client_socket, Reply),
     State.
 

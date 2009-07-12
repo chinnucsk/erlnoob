@@ -94,7 +94,7 @@ parse_first_game_packet(State, Msg) ->
 	      233,3,0,16, % Creature ID
 	      (byte_size(<<"Svett">>)):16/?UINT, % Name len
 	      <<"Svett">>/binary, % Name
-	      95, % Health in percent, round((CurrentHP / MaxHP)*100).
+	      0, % Health in percent, round((CurrentHP / MaxHP)*100).
  	      2, % Direction 0-3   2 is facing down
 	      128,0, % Looktype
 	      %%0,0, % if looktype is 0 then show an item instead
