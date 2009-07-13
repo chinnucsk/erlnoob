@@ -34,7 +34,11 @@ parse_monster([File|Files], Acc) ->
     {R,[]} = xmerl_scan:file("../monster/"++File,
 			     [{space,normalize},
 			      {acc_fun, ?ACCFUN}]),
-    monster(R).
+    M = monster(R).%,
+%%     parse_monster(Files, [M|Acc]);
+%% parse_monster([],Acc) ->
+%%     Acc,done.
+
 
 monster(#xmlElement{name = monster,
 		    attributes = Attributes,
@@ -61,12 +65,6 @@ parse_content([#xmlElement{name = look,
 		     _ = 0},
 
     parse_content(Rest,M#monster{outfit = Outfit});
-parse_content([#xmlElement{name = targetchance,
-			   attributes = Attrs}|Rest],M) ->
-    TargetChance = parse_attributes(Attrs),
-    parse_content(Rest,M#monster{target_chance =
-				 {proplists:get_value(interval,TargetChance),
-				  proplists:get_value(chance,TargetChance)}});
 parse_content([#xmlElement{name = flags,
 			   attributes = [],
 			   content = Content}|Rest],M) ->
@@ -77,19 +75,41 @@ parse_content([#xmlElement{name = flag,
 			   content = []}|Rest],Acc) ->
     A = parse_attributes(Attrs),
     parse_content(Rest,[A|Acc]);
-parse_content([#xmlElement{name = attacks,
-			   attributes = [],
-			   content = Content}|Rest],M) ->
-    Attacks = parse_content(Content, []),
-    io:format("~p\n", [Attacks]),
-    parse_content(Rest,M#monster{attacks = Attacks});
-parse_content([#xmlElement{name = attack,
+parse_content([#xmlElement{name = voices,
 			   attributes = Attrs,
-			   content = _Content}|Rest],Acc) ->
+			   content = Content}|Rest],M) ->
+    A = parse_attributes(Attrs),
+    Voices = lists:append(parse_content(Content, [])),
+    parse_content(Rest,M#monster{voices = {A,Voices}});
+parse_content([#xmlElement{name = voice,
+			   attributes = Attrs,
+			   content = []}|Rest],Acc) ->
     A = parse_attributes(Attrs),
     parse_content(Rest,[A|Acc]);
+parse_content([#xmlElement{name = loot,
+			   attributes = [],
+			   content = Content}|Rest],M) ->
+    Loot = parse_content(Content, []),
+    parse_content(Rest,M#monster{loot = Loot});
+parse_content([#xmlElement{name = item,
+			   attributes = Attrs,
+			   content = Content}|Rest],Acc) ->
+    A = parse_attributes(Attrs),
+    Id = proplists:get_value(id,A),
+    Inside = parse_content(Content, []),
+    parse_content(Rest,[#map_item{id = Id,
+				 attributes =lists:delete({id,Id},A),
+				 content = Inside}|Acc]);
+parse_content([#xmlElement{name = inside,
+			   content = Content}|Rest],[]) ->
+    Items = parse_content(Content, []),
+    parse_content(Rest,Items);
+
+
 parse_content([_|Rest],M) ->
     parse_content(Rest,M);
+parse_content([],Acc) when is_list(Acc) ->
+    lists:reverse(Acc);
 parse_content([],M) ->
     M.
 
@@ -120,4 +140,4 @@ parse_attributes([#xmlAttribute{name = Name,
 	    parse_attributes(Attrs, [{Name, Value}|Acc])
     end;
 parse_attributes([],Acc) ->
-    Acc.
+    lists:reverse(Acc).
