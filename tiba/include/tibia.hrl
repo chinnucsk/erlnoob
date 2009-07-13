@@ -22,8 +22,6 @@
 -define(NODE_END, 255).
 -define(ESCAPE_CHAR, 253).
 
-
-
 -record(state, {server_socket,
 		client_socket,
 		key,
@@ -79,12 +77,20 @@
 		 outfit,
 		 direction,
 		 health,
-		 max_health,
 		 light,
 		 skull,
 		 shield}).
 
 -record(outfit, {type,head,body,legs,feet,addons,corpse}).
+
+-record(creature, {name,
+		   health,
+		   direction,
+		   outfit,
+		   light,
+		   speed,
+		   skull,
+		   shield}).
 
 -record(monster, {name,
 		  name_description,
@@ -99,3 +105,6 @@
 		  immunities,
 		  voices,
 		  loot}).
+
+-record(spawn, {center,radius,monsters}).
+-record(spawn_monster, {monster,pos,spawn_time}).

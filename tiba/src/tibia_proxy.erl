@@ -43,6 +43,7 @@ start(Port) ->
 tcp_start(ListenPort) ->
     process_flag(trap_exit, true),
     tibia_items:load("items.otb", "items.xml"),
+    tibia_monsters:load_monsters("../monster/monsters.xml"),
     tibia_iomap:load("test.otbm"),
     {ok, ListenSocket} = gen_tcp:listen(ListenPort, [binary, inet]),
     

@@ -22,31 +22,41 @@ test() ->
 		end).
 
 load_monsters(File) ->
-    io:format("Loading monsters: ~p\n", [File]),
-    {R,[]} = xmerl_scan:file(File, [{space,normalize}, {acc_fun, ?ACCFUN}]),
-    Monsters = parse_monsters_xml(R),
-    parse_monster(Monsters).
+    try ets:new(monsters, [{keypos, #monster.name},
+			   ordered_set, protected,
+			   named_table]),
+	io:format("Loading monsters: ~p\n", [File]),
+	{R,[]} = xmerl_scan:file(File, [{space,normalize}, {acc_fun, ?ACCFUN}]),
+	Monsters = parse_monsters_xml(R),
+	parse_monsters(Monsters),
+	ok
+    catch
+	_:Reason ->
+	    throw({error,Reason})
+    end.
 
-parse_monster(Monsters) ->
-    parse_monster(Monsters, []).
-
-parse_monster([File|Files], Acc) ->
+parse_monsters([File|Files]) ->
     {R,[]} = xmerl_scan:file("../monster/"++File,
 			     [{space,normalize},
 			      {acc_fun, ?ACCFUN}]),
-    M = monster(R).%,
-%%     parse_monster(Files, [M|Acc]);
-%% parse_monster([],Acc) ->
-%%     Acc,done.
+    try M = monster(R),
+	ets:insert(monsters,M),
+	parse_monsters(Files)
+    catch
+	_:Reason ->
+	    throw({parse_monster,[{error,Reason}]})
+    end;
+parse_monsters([]) ->
+    done.
 
 
 monster(#xmlElement{name = monster,
 		    attributes = Attributes,
 		    content = Content}) ->
     Attrs = parse_attributes(Attributes),
-    M = #monster{name = proplists:get_value(name,Attrs),
+    M = #monster{name = string:to_lower(proplists:get_value(name,Attrs)),
 		 name_description = proplists:get_value(nameDescription,Attrs),
-		 race = proplists:get_value(race,Attrs),
+		 race = list_to_atom(string:to_lower(proplists:get_value(race,Attrs))),
 		 experience = proplists:get_value(experience,Attrs),
 		 speed = proplists:get_value(speed,Attrs),
 		 manacost = proplists:get_value(manacost,Attrs)},

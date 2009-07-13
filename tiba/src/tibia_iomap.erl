@@ -10,6 +10,7 @@
 -compile(export_all).
 
 -include("tibia.hrl").
+-include_lib("xmerl/include/xmerl.hrl").
 
 -define(OTBM_ATTR_DESCRIPTION, 1).
 -define(OTBM_ATTR_EXT_FILE, 2).
@@ -92,16 +93,18 @@ load(File) ->
 		    public,
 		    named_table]),
     Data = tibia_files:parse(File),
-    load_map(Data).
+    done = load_map(Data),
+    Base = filename:basename(File, ".otbm"),
+    load_spawns(Base ++ "-spawn.xml").
 
 
 
 
 
 load_map(Nodes) ->
-    {Header,Nodes2} = get_header(Nodes),
+    {_Header,Nodes2} = get_header(Nodes),
     load_map(Nodes2, []),
-    Header.
+    done.
 
 load_map([], Acc) ->
     lists:reverse(lists:flatten(Acc));
@@ -309,3 +312,96 @@ parse_header(<<Attr:8/?UINT,Rest/binary>>, Attrs) ->
     end.
 
 
+load_spawns(File) ->
+    Fun = fun(#xmlText{value = " ", pos = P}, A, S) ->
+		  {A, P, S};  % new return format
+	     (X, A, S) ->
+		  {[X|A], S}
+	  end,
+    try ets:new(spawns,[{keypos, #monster.name},
+			ordered_set, protected,
+			named_table])
+    catch _:Reason ->
+	    throw({load_spawns, [{error, Reason}]})
+    end,
+    io:format("File: ~p\n", [File]),
+    {R,[]} = xmerl_scan:file(File,
+			     [{space,normalize},
+			      {acc_fun, Fun}]),
+    parse_spawn(R).
+
+parse_spawn(#xmlElement{name = spawns,
+			attributes = [],
+			content = Content}) ->
+    parse_spawn(Content);
+parse_spawn([#xmlElement{name = spawn,
+			 attributes = Attrs,
+			 content = Content}|Rest]) ->
+    A = parse_attributes(Attrs),
+    Center =
+	#coord{x = proplists:get_value(centerx,A),
+	       y = proplists:get_value(centery,A),
+	       z = proplists:get_value(centerz,A)},
+    Monsters = parse_spawn(Content, Center, []),
+    S = #spawn{center = Center,
+	       radius = proplists:get_value(radius,A),
+	       monsters = Monsters},
+    ets:insert(spawns, S),
+    parse_spawn(Rest);
+parse_spawn([]) ->
+    done.
+
+parse_spawn([#xmlElement{name = Type,
+			 attributes = Attrs,
+			 content = []}|Rest], C=#coord{x=X,y=Y}, Acc)
+  when Type =:= monster;
+       Type =:= npc ->
+    A = parse_attributes(Attrs),
+    Name = proplists:get_value(name,A),
+    Pos = #coord{x = proplists:get_value(x,A),
+		 y = proplists:get_value(y,A),
+		 z = proplists:get_value(z,A)},
+    case ets:lookup(monsters, string:to_lower(Name)) of
+	[#monster{health = Health,
+		  speed = Speed,
+		  outfit = Outfit}] ->
+	    MapCoord = C#coord{x=X+Pos#coord.x,
+			       y=Y+Pos#coord.y},
+	    case ets:lookup(map,MapCoord) of
+		[Tile=#tile{creatures = Creatures}] ->
+		    Monster = #creature{name = Name,
+					health = Health,
+					direction = 2,
+					outfit = Outfit,
+					speed = Speed,
+					light = {0,0},
+					skull = 0,
+					shield = 0},
+		    ets:insert(map,Tile#tile{creatures = [Monster|Creatures]});
+		[] ->
+		    throw({parse_spawn, [{no_such_coord,MapCoord}]})
+	    end;
+	[] ->
+	    throw({parse_spawn, [{no_such_monster,Name}]})
+    end,
+    S = #spawn_monster{monster = Name,
+		       pos = Pos,
+		       spawn_time = proplists:get_value(spawntime,A)},
+    parse_spawn(Rest, C,[S|Acc]);
+parse_spawn([],_, Acc) ->
+    Acc.
+
+
+
+parse_attributes(Attributes) ->
+    parse_attributes(Attributes,[]).
+
+parse_attributes([#xmlAttribute{name = Name,
+				value = Value}|Attrs], Acc) ->
+    try 
+	parse_attributes(Attrs, [{Name, list_to_integer(Value)}|Acc])
+    catch _:_ ->
+	    parse_attributes(Attrs, [{Name, Value}|Acc])
+    end;
+parse_attributes([],Acc) ->
+    lists:reverse(Acc).

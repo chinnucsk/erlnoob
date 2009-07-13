@@ -167,34 +167,10 @@ creature_description(Pos) ->
      Creatures = ets:lookup_element(map, Pos, #tile.creatures),
 
      creature_description(Creatures, <<>>).
-%%     <<%% Creature start
-%%      97,0, % Not known 16#61:16/?UINT
-%%      0,0,0,0, % Remove
-%%      233,3,0,16, % Creature ID
-%%      (byte_size(<<"Svett">>)):16/?UINT, % Name len
-%%      <<"Svett">>/binary, % Name
-%%      0, % Health in percent, round((CurrentHP / MaxHP)*100).
-%%      2, % Direction 0-3   2 is facing down
-%%      128,0, % Looktype
-%%      %%0,0, % if looktype is 0 then show an item instead
-%%      %%23,12, % axe ring
-%%      44, % Look head
-%%      44, % Look body
-%%      44, % Look legs
-%%      44, % Look feet
-%%      0,  % Look addons
-%%      0, % Light level
-%%      0, % Light color
-%%      220,0, % Char speed
-%%      0, % Skull (0-5)
-%%      0 % Party shield (0-10)
-%%      %% Creature end
-%%      >>.
 
 
 creature_description([#creature{name = Name,
-				health = Hp,
-				max_health = Max,
+				health = {Hp,Max},
 				direction = Dir,
 				outfit = Outfit,
 				light = {LightLevel, LightColor},
