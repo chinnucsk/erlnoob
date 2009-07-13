@@ -76,18 +76,30 @@
 		 pos,
 		 name,
 		 id,
-		 direction}).
+		 outfit,
+		 direction,
+		 health,
+		 max_health,
+		 light,
+		 skull,
+		 shield}).
 
--record(outfit, {type,head,body,legs,feet,addons}).
+-record(outfit, {type,head,body,legs,feet,addons,corpse}).
 
--record(creature, {type,
-		   id,
-		   name,
-		   max_health,
-		   health,
-		   direction,
-		   outfit,
-		   light,
-		   speed,
-		   skull,
-		   shield}).
+-record(monster, {name,
+		  name_description,
+		  race,
+		  experience,
+		  speed,
+		  manacost,
+		  health,
+		  outfit,
+		  target_chance,
+		  strategy,
+		  flags,
+		  attacks,
+		  defences,
+		  elements,
+		  immunities,
+		  voices,
+		  loot}).

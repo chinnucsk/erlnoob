@@ -325,9 +325,9 @@ parse_xml([#xmlElement{name = attribute, attributes = Attributes,
 		       content = []}|Elements], Acc) ->
     parse_xml(Elements, [get_xml_attributes(Attributes)|Acc]);
 parse_xml([#xmlElement{name = attribute, attributes = Attributes,
-		       content = Attributes2}|Elements], Acc) ->
+		       content = Content}|Elements], Acc) ->
     parse_xml(Elements, [lists:append([get_xml_attributes(Attributes)|
-				       parse_xml(Attributes2, [])])|Acc]);
+				       parse_xml(Content, [])])|Acc]);
 parse_xml([], Acc) ->
     Acc;
 parse_xml([#xmlElement{name = Tag,

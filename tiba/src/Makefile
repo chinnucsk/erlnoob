@@ -11,6 +11,7 @@ MODULES = \
 	tibia_message\
 	tibia_parse\
 	tibia_proxy\
+	tibia_monsters\
 	xtea
 
 INCLUDES =

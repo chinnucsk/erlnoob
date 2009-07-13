@@ -140,10 +140,12 @@ y(_Pos, {_,Y}, _Height,Skip,Acc) ->
     {Acc,Skip}.
 
 
-tile_description(#tile{type = Ground,
+tile_description(#tile{coord = Pos,
+		       type = Ground,
 		       items = Items}) ->
     try Cid = ets:lookup_element(item_types,Ground,#item_type.client_id),
-	<<Cid:16/?UINT,(item_description(Items))/binary,(creatures_description(a))/binary>>
+	<<Cid:16/?UINT,(item_description(Items))/binary,
+	 (creature_description(Pos))/binary>>
     catch _:badarg ->
 	    throw({tile_description,[{noexist,Ground}]})
     end.
@@ -161,33 +163,33 @@ item_description([],Acc) ->
     Acc.
 
 
-creatures_description(Pos) ->
-%%     Creatures = ets:lookup_element(map, Pos, #tile.creatures),
+creature_description(Pos) ->
+     Creatures = ets:lookup_element(map, Pos, #tile.creatures),
 
-%%     creature_description(Creatures, <<>>),
-    <<%% Creature start
-     97,0, % Not known 16#61:16/?UINT
-     0,0,0,0, % Remove
-     233,3,0,16, % Creature ID
-     (byte_size(<<"Svett">>)):16/?UINT, % Name len
-     <<"Svett">>/binary, % Name
-     0, % Health in percent, round((CurrentHP / MaxHP)*100).
-     2, % Direction 0-3   2 is facing down
-     128,0, % Looktype
-     %%0,0, % if looktype is 0 then show an item instead
-     %%23,12, % axe ring
-     44, % Look head
-     44, % Look body
-     44, % Look legs
-     44, % Look feet
-     0,  % Look addons
-     0, % Light level
-     0, % Light color
-     220,0, % Char speed
-     0, % Skull (0-5)
-     0 % Party shield (0-10)
-     %% Creature end
-     >>.
+     creature_description(Creatures, <<>>).
+%%     <<%% Creature start
+%%      97,0, % Not known 16#61:16/?UINT
+%%      0,0,0,0, % Remove
+%%      233,3,0,16, % Creature ID
+%%      (byte_size(<<"Svett">>)):16/?UINT, % Name len
+%%      <<"Svett">>/binary, % Name
+%%      0, % Health in percent, round((CurrentHP / MaxHP)*100).
+%%      2, % Direction 0-3   2 is facing down
+%%      128,0, % Looktype
+%%      %%0,0, % if looktype is 0 then show an item instead
+%%      %%23,12, % axe ring
+%%      44, % Look head
+%%      44, % Look body
+%%      44, % Look legs
+%%      44, % Look feet
+%%      0,  % Look addons
+%%      0, % Light level
+%%      0, % Light color
+%%      220,0, % Char speed
+%%      0, % Skull (0-5)
+%%      0 % Party shield (0-10)
+%%      %% Creature end
+%%      >>.
 
 
 creature_description([#creature{name = Name,
@@ -203,7 +205,7 @@ creature_description([#creature{name = Name,
 	<<16#61:16/?UINT,
 	 0:32/?UINT,
 	 233,3,0,16,%id
-	 (byte_size(Name)):16/?UINT,
+	 (length(Name)):16/?UINT,
 	 (list_to_binary(Name))/binary,
 	 (round((Hp / Max)*100)),
 	 Dir,

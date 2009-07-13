@@ -89,7 +89,7 @@ load(File) ->
     io:format("Loading map: ~p\n", [File]),
     ets:new(map, [{keypos, #tile.coord},
 		    set,
-		    protected,
+		    public,
 		    named_table]),
     Data = tibia_files:parse(File),
     load_map(Data).
@@ -307,12 +307,5 @@ parse_header(<<Attr:8/?UINT,Rest/binary>>, Attrs) ->
 	    parse_header(Rest2, [{spawn_file,SpawnFile}|Attrs]);
 	254 -> {Attrs, <<254:8/?UINT,Rest/binary>>}
     end.
-
-
-
-
-
-
-
 
 
