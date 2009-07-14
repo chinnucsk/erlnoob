@@ -53,8 +53,7 @@ parse_login_package(State, <<_:12/binary,Msg:128/binary>>) ->
     {check_account(State#state{key = Key}, Acc, Pass),
      <<(byte_size(Reply)+4):16/?UINT,
       (erlang:adler32(Reply)):32/?UINT,
-      Reply/binary>>
-    }.
+      Reply/binary>>}.
 
 
 parse_first_game_packet(State, Msg) ->
@@ -69,57 +68,37 @@ parse_first_game_packet(State, Msg) ->
 	       k3 = K3,
 	       k4 = K4},
 
-    Player =
 	case mnesia:transaction(?LOOKUP_PLAYER(binary_to_list(Name))) of
-	    {atomic, [P]} ->
-		P;
+	    {atomic, [Player=#player{pos=Pos=#coord{x=X,y=Y}}]} ->
+		Player;
 	    _ ->
 		io:format("Couldnt find player: ~p\n", [Name]),
-		exit(could_not_find_player)
+		Player = error,
+		Pos=X=Y= error,
+		tibia_proxy:disconnect(State,
+				       <<"You need to create a character.">>)
 	end,
+    P = #creature{pos = Player#player.pos,
+		  id = set_id(player),
+		  name = binary_to_list(Name),
+		  health = {100,200},
+		  direction = Player#player.direction,
+		  outfit = Player#player.outfit,
+		  light = {0,0},
+		  speed = 220,
+		  skull = 1,
+		  shield = 1},
+    io:format("~p\n", [P#creature.id]),
+    ets:insert(creatures,P),
     Reply0 = <<16#0A,
-	      233,3,0,16, % Player ID
+	      (P#creature.id):32/?UINT, % Player ID
 	      16#32,
 	      16#00,
 	      16#00, % Custom flag - can report bugs
 
 	      16#64, % Map description starts
 	      4,0, 4,0, 7, % Coord (X,Y,Z)
-	      (tibia_message:map_description(#coord{x=4,y=4,z=7},18,14))/binary,
-%% 	      117,255, % Skip , 16#FF
-%% 	      168,17, % Tile grass - cid 4520 sid - 4531/9048
-
-%% 	      %% Creature start
-%% 	      97,0, % Not known 16#61:16/?UINT
-%% 	      0,0,0,0, % Remove
-%% 	      233,3,0,16, % Creature ID
-%% 	      (byte_size(<<"Svett">>)):16/?UINT, % Name len
-%% 	      <<"Svett">>/binary, % Name
-%% 	      0, % Health in percent, round((CurrentHP / MaxHP)*100).
-%%  	      2, % Direction 0-3   2 is facing down
-%% 	      128,0, % Looktype
-%% 	      %%0,0, % if looktype is 0 then show an item instead
-%% 	      %%23,12, % axe ring
-%% 	      44, % Look head
-%% 	      44, % Look body
-%% 	      44, % Look legs
-%% 	      44, % Look feet
-%% 	      0,  % Look addons
-%% 	      0, % Light level
-%% 	      0, % Light color
-%% 	      220,0, % Char speed
-%% 	      0, % Skull (0-5)
-%% 	      0, % Party shield (0-10)
-%% 	      %% Creature end
-
-%% 	      255,255,
-%% 	      255,255, % No tile
-%% 	      255,255, % No tile
-%% 	      255,255, % No tile
-%% 	      255,255, % No tile
-%% 	      255,255, % No tile
-%% 	      255,255, % No tile
-%% 	      105,255,
+	      (tibia_message:map_description(Pos#coord{x=X-8,y=Y-6},18,14))/binary,
 	      131, % Magic effect
 	      4,0, 4,0, 7, % Magic effect pos (X,Y,Z)
 	      15, % Magic effect type
@@ -152,7 +131,8 @@ parse_first_game_packet(State, Msg) ->
     %%Size = byte_size(WaitList),
     %%Reply = xtea:encrypt(Key, <<(Size+4):16/?UINT,16#16:8/?UINT,Size:16/?UINT,(WaitList)/binary,20:8/?UINT>>),
 
-    {check_account(State#state{key = Key}, Acc, Pass),
+    {check_account(State#state{key = Key,
+			       player = Player}, Acc, Pass),
      <<(byte_size(Reply)+4):16/?UINT,
       (erlang:adler32(Reply)):32/?UINT,
       Reply/binary>>}.
@@ -177,17 +157,34 @@ check_account(State, Acc, Pass) ->
 
 
 
-get_map_description(C=#coord{z=Z}) ->
-    if Z > 7 ->
-	    EndZ =
-		if 15 > Z+2 -> 15;
-		   true ->     Z+2
-		end,
-	    get_map_description(C#coord{z=Z-2},Z, EndZ, 1, <<>>, -1);
-       true ->
-	    get_map_description(C#coord{z=7},Z, 0, -1, <<>>, -1)
+%% 16#20000000 - Player
+%% 16#30000000 - NPC
+%% 16#40000000 - Monster
+set_id(player) ->
+    case get(id_player) of
+	undefined ->
+	    put(id_player,16#10000001),
+	    16#10000001;
+	Prev ->
+	    put(id_player, Prev+1),
+	    Prev+1
+    end;
+set_id(npc) ->
+    case get(id_npc) of
+	undefined ->
+	    put(id_npc,16#30000001),
+	    16#30000001;
+	Prev ->
+	    put(id_npc, Prev+1),
+	    Prev+1
+    end;
+set_id(monster) ->
+    case get(id_monster) of
+	undefined ->
+	    put(id_monster,16#60000001),
+	    16#60000001;
+	Prev ->
+	    put(id_monster, Prev+1),
+	    Prev+1
     end.
-
-get_map_description(_C=#coord{z=_Z},_Z2, _EndZ, _Step, _Acc, _Skip) ->
-    <<232,0,10,244,3,0,16,50,0,0,100,4,0,4,0,7,117,255,163,17,79,4,76,4,77,4,78,4,97,0,0,0,0,0,244,3,0,16,5,0,83,118,101,116,116,95,2,128,0,44,44,44,44,0,0,0,220,0,0,0,255,255,255,255,255,255,255,255,255,255,255,255,255,255,105,255,131,4,0,4,0,7,11,121,1,121,2,121,3,120,4,233,13,121,5,120,6,198,12,121,7,121,8,121,9,121,10,160,175,0,185,0,236,144,0,0,0,0,0,0,1,0,0,35,0,35,0,0,0,100,32,13,161,10,0,10,12,10,0,10,0,10,0,10,0,10,0,130,208,215,141,244,3,0,16,0,0,180,24,21,0,87,101,108,99,111,109,101,32,116,111,32,80,111,119,101,114,102,108,105,112,33,180,24,48,0,89,111,117,114,32,108,97,115,116,32,118,105,115,105,116,32,119,97,115,32,111,110,32,83,117,110,32,74,117,110,32,50,56,32,49,51,58,50,53,58,48,54,32,50,48,48,57,46,51,51,51,51,51,51>>.
-
+    

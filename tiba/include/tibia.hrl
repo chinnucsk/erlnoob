@@ -26,6 +26,7 @@
 		client_socket,
 		key,
 		account,
+		player,
 		server_pid}).
 -record(key, {k1,k2,k3,k4}).
 
@@ -64,7 +65,6 @@
 -record(tile, {coord = #coord{},
 	       type,
 	       house_id,
-	       creatures = [],
 	       items,
 	       flags}).
 
@@ -83,7 +83,9 @@
 
 -record(outfit, {type,head,body,legs,feet,addons,corpse}).
 
--record(creature, {name,
+-record(creature, {pos,
+		   id,
+		   name,
 		   health,
 		   direction,
 		   outfit,

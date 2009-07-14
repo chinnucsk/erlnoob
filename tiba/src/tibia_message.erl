@@ -59,11 +59,6 @@ get_tile(Pos) ->
     ok.
 
 
-%% 16#20000000 - Player
-%% 16#30000000 - NPC
-%% 16#40000000 - Monster
-set_id() ->
-    16#20000000.
 
 max(A,B) ->
     if A > B -> A;
@@ -106,15 +101,14 @@ map_description(_,_,_,_,_,_,_,Skip,Acc) ->
     end.
 
 floor_description(Pos, Width,Height,Skip) ->
-    Pos2 = Pos#coord{x=Pos#coord.x-8,
-		     y=Pos#coord.y-6},
+    Pos2 = Pos#coord{x=Pos#coord.x,
+		     y=Pos#coord.y},
     x(Pos2,0,Width,Height,Skip, <<>>).
 
 x(Pos,NX,Width,Height,Skip,Acc) when NX < Width ->
     {Acc2,Skip2} = y(Pos, {NX,0},Height,Skip, <<>>),
     x(Pos, NX+1, Width, Height,Skip2, <<Acc/binary,Acc2/binary>>);
 x(_,X,_,_,Skip,Acc) ->
-    %%io:format("~p\n", [byte_size(Acc)]),
     {Acc,Skip}.
 
 y(Pos=#coord{x=X,y=Y},{NX,NY},Height,Skip,Acc) when NY < Height ->
@@ -164,12 +158,16 @@ item_description([],Acc) ->
 
 
 creature_description(Pos) ->
-     Creatures = ets:lookup_element(map, Pos, #tile.creatures),
+    try Creatures = ets:match_object(creatures, #creature{pos = Pos,
+							  _='_'}),
+	creature_description(Creatures, <<>>)
+    catch _:badarg ->
+	    throw({creature_description,[{noexist,Pos}]})
+    end.
 
-     creature_description(Creatures, <<>>).
-
-
+%%{creature,{coord,4,4,7},"Svett",{100,200},2,{outfit,128,44,44,44,44,0,0},{0,0},220,1,1}
 creature_description([#creature{name = Name,
+				id = Id,
 				health = {Hp,Max},
 				direction = Dir,
 				outfit = Outfit,
@@ -180,7 +178,7 @@ creature_description([#creature{name = Name,
     Creature =
 	<<16#61:16/?UINT,
 	 0:32/?UINT,
-	 233,3,0,16,%id
+	 Id:32/?UINT,%id
 	 (length(Name)):16/?UINT,
 	 (list_to_binary(Name))/binary,
 	 (round((Hp / Max)*100)),
@@ -205,3 +203,33 @@ outfit(#outfit{type = Type,
        true ->
 	    <<Type:16/?UINT,23,12>>
     end.
+
+-define(NORTH, 16#65).
+-define(EAST,  16#66).
+-define(SOUTH, 16#67).
+-define(WEST,  16#68).
+
+move_creature(C=#coord{x=X,y=Y,z=Z},Dir) ->
+    io:format("16#~.16B ", [Dir]),
+    case Dir of
+	?NORTH -> NewX = X,   NewY = Y-1, NewZ = Z;
+	?EAST  -> NewX = X+1, NewY = Y,   NewZ = Z;
+	?SOUTH -> NewX = X,   NewY = Y+1, NewZ = Z;
+	?WEST  -> NewX = X-1, NewY = Y,   NewZ = Z
+    end,
+	    
+    B =
+	if Y > NewY -> % Norhh
+		<<16#65,(map_description(C#coord{x=X-8,y=Y-6},18,1))/binary>>;
+	   Y < NewY -> % South
+		<<16#67,(map_description(C#coord{x=X-8,y=Y+7},18,1))/binary>>;
+	   X < NewX -> % East
+		<<16#66,(map_description(C#coord{x=X+9,y=Y-6},1,14))/binary>>;
+	   X > NewX -> % West
+		<<16#68,(map_description(C#coord{x=X-8,y=Y-6},1,14))/binary>>
+    end,
+    {<<16#6D,
+      X:16/?UINT,Y:16/?UINT,Z:8/?UINT,
+      1,
+      NewX:16/?UINT,NewY:16/?UINT,NewZ:8/?UINT,
+      B/binary>>,C#coord{x=NewX,y=NewY}}.

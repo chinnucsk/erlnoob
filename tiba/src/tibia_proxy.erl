@@ -42,9 +42,13 @@ start(Port) ->
 
 tcp_start(ListenPort) ->
     process_flag(trap_exit, true),
+    ets:new(creatures, [{keypos, #creature.name},
+			set,
+			public,
+			named_table]),
     tibia_items:load("items.otb", "items.xml"),
     tibia_monsters:load_monsters("../monster/monsters.xml"),
-    tibia_iomap:load("test.otbm"),
+    tibia_iomap:load("forgotten.otbm"),
     {ok, ListenSocket} = gen_tcp:listen(ListenPort, [binary, inet]),
     
     io:format("Server is running.\n", []),
@@ -67,14 +71,19 @@ tcp_listen_loop(ListenSocket, Pids) ->
 
 check_event(ListenSocket, Pids) ->
     receive
-	{'EXIT', Pid, {logout, Name}} ->
-	    io:format("~p has logged out.\n", [Name]),
+	{'EXIT', Pid, {logout, Player}} ->
+	    io:format("~p has logged out.\n", [Player#player.name]),
+	    ets:delete(creatures,Player#player.name),
 	    Pids2 = lists:delete(Pid,Pids),
 	    check_event(ListenSocket, Pids2);
+	{'EXIT', Pid, Reason} ->
+	    io:format("~p exited ~p\n", [Pid,Reason]),
+	    Pids2 = lists:delete(Pid,Pids),
+	    ?MODULE:tcp_listen_loop(ListenSocket, Pids2);
 	stop ->
 	    [Pid ! shutdown || Pid <- Pids],
-	    io:format("Server stopped", []),
-	    exit(stop)
+	    io:format("Server stopped.\n", []),
+	    stop
     after 0 ->
 	    ?MODULE:tcp_listen_loop(ListenSocket, Pids)
     end.
@@ -130,8 +139,10 @@ tcp_loop(State=#state{client_socket = ClientSocket,
 	Any ->
 	    io:format("tcp unknown message ~p\n", [Any]),
 	    ?MODULE:tcp_loop(State)
-    after 15 * 60 * 1000 ->
-	    gen_tcp:close(ClientSocket)
+    after 1000 ->
+	    Reply = tibia_parse:prepare_send(State#state.key,<<16#1E>>),
+	    gen_tcp:send(State#state.client_socket,Reply),
+	    ?MODULE:tcp_loop(State)
     end.
 
 verify_checksum(PacketChecksum, Message) ->

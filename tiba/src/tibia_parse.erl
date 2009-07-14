@@ -87,24 +87,36 @@ parse_client_packet(State, Packet) when State#state.account =:= undefined ->
 	    io:format("Other protocol: ~p\n", [ProtocolId]),
 	    State
     end;
-parse_client_packet(State, <<Checksum:32/?UINT,Msg/binary>>) ->
+parse_client_packet(State=#state{player = P=#player{pos = Pos}},
+		    <<Checksum:32/?UINT,Msg/binary>>) ->
     Decrypted = xtea:decrypt(State#state.key, Msg),
     <<Size:16/?UINT, Msg2:Size/binary,_/binary>> = Decrypted,
     <<RecvByte,  Data/binary>> = Msg2,
     case RecvByte of
 	16#14 ->
 	    gen_tcp:close(State#state.client_socket),
-	    exit({logout, (State#state.account)#account.name});
+	    exit({logout, State#state.player});
 	16#a0 ->
 	    ok;
+	16#1E ->
+	    io:format("ping\n");
 	Dir when Dir >= 16#6F, Dir =< 16#72 ->
 	    Turn =
 		tibia_message:creature_turn(268436457,
 					    #coord{x=4,y=4,z=7},
 					    Dir - 16#6F),
 	    Reply = prepare_send(State#state.key,Turn),
-	    gen_tcp:send(State#state.client_socket,
-			 Reply);
+	    gen_tcp:send(State#state.client_socket,Reply);
+	Dir when Dir >= 16#65, Dir =< 16#68 ->
+	    {Move,NewPos} =
+		tibia_message:move_creature(Pos,
+					    Dir),
+	    [C] = ets:lookup(creatures, P#player.name),
+	    true = ets:insert(creatures,C#creature{pos = NewPos}),
+	    io:format("~p\n", [Move]),
+	    Reply = prepare_send(State#state.key, Move),
+	    gen_tcp:send(State#state.client_socket,Reply);
+
 	_ ->
 	    io:format("Msg: ~p ~p\n", [RecvByte, Data])
     end,
@@ -115,8 +127,8 @@ parse_client_packet(State, <<Checksum:32/?UINT,Msg/binary>>) ->
 prepare_send(Key, Bin) when is_binary(Bin) ->
     Encrypted = xtea:encrypt(Key, <<(byte_size(Bin)):16/?UINT,Bin/binary>>),
     <<(byte_size(Encrypted)+4):16/?UINT,
-     (erlang:adler32(Encrypted)):32/?UINT,
-     Encrypted/binary>>.
+	 (erlang:adler32(Encrypted)):32/?UINT,
+	 Encrypted/binary>>.
 
 
 test(Key,

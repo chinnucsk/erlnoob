@@ -125,9 +125,10 @@ get_tiles(Nodes, Base) ->
 
 get_tiles([], _Base, Acc) ->
     Acc;
-get_tiles([#node{type = ?OTBM_TILE,data = Data,children = Children}|Tiles], Base, Acc) ->
-    try <<X:8/?UINT,Y:8/?UINT,Rest/binary>> = Data,
-	Attributes = get_tile_attributes(Rest),
+get_tiles([#node{type = ?OTBM_TILE,
+		 data = <<X:8/?UINT,Y:8/?UINT,Rest/binary>>,
+		 children = Children}|Tiles], Base, Acc) ->
+    try	Attributes = get_tile_attributes(Rest),
 	true=ets:insert(map,#tile{coord = #coord{x = Base#coord.x + X,
 						 y = Base#coord.y + Y,
 						 z = Base#coord.z},
@@ -135,13 +136,14 @@ get_tiles([#node{type = ?OTBM_TILE,data = Data,children = Children}|Tiles], Base
 				  items = get_items(Children),
 				  flags = proplists:get_value(flags, Attributes)}),
 	get_tiles(Tiles,Base,Acc)
-    catch _:Reason -> throw({{error,Reason}, [{get_tiles, 'OTBM_TILE'},
-					      {base, Base}]})
+    catch _:badarg -> throw({error,[{get_tiles, 'OTBM_TILE'},
+				    {base, Base}]})
     end;
-get_tiles([#node{type = ?OTBM_HOUSETILE,data = Data,children = Children}|Tiles], Base, Acc) ->
-    try <<X:8/?UINT,Y:8/?UINT,HouseId:32/?UINT,Rest/binary>> = Data,
-	Attributes = get_tile_attributes(Rest),
-	true=ets:insert(map, #tile{coord = #coord{x = Base#coord.x + X,
+get_tiles([#node{type = ?OTBM_HOUSETILE,
+		 data = <<X:8/?UINT,Y:8/?UINT,HouseId:32/?UINT,Rest/binary>>,
+		 children = Children}|Tiles], Base, Acc) ->
+    Attributes = get_tile_attributes(Rest),
+    try	true=ets:insert(map, #tile{coord = #coord{x = Base#coord.x + X,
 						  y = Base#coord.y + Y,
 						  z = Base#coord.z},
 				   house_id = HouseId,
@@ -149,8 +151,8 @@ get_tiles([#node{type = ?OTBM_HOUSETILE,data = Data,children = Children}|Tiles],
 				   items = get_items(Children),
 				   flags = proplists:get_value(flags, Attributes)}),
 	get_tiles(Tiles,Base,Acc)
-    catch _:Reason -> throw({{error,Reason}, [{get_tiles, 'OTBM_HOUSETILE'},
-					      {base, Base}]})
+    catch _:badarg -> throw({error,[{get_tiles, 'OTBM_HOUSETILE'},
+				    {base, Base}]})
     end;
 get_tiles([#node{}|Tiles], Base,Acc) ->
     get_tiles(Tiles, Base, Acc).
@@ -186,11 +188,11 @@ get_items([#node{type = ?OTBM_ITEM,
 		 data = <<Id:16/?UINT,Rest/binary>>,
 		 children = Children}|Nodes], Acc) ->
     try [#item_type{server_id = Id}] = ets:lookup(item_types, Id),
-	[#item{id = Id}] = ets:lookup(items, Id),
+	%%[#item{id = Id}] = ets:lookup(items, Id),
 	get_items(Nodes, [#map_item{id = Id,
 				    attributes = get_item_attributes(Rest, []),
 				    content = get_items(Children)}|Acc])
-    catch _:_ ->
+    catch _:badarg ->
 	    throw({item_doesnt_exist, Id})
     end;
 get_items([#node{type = Type}|_], _) ->
@@ -265,7 +267,14 @@ get_item_attributes(<<Attr:8/?UINT,Rest/binary>>, Attributes)  ->
 	    get_item_attributes(Rest2, [{decaying_state, State}|Attributes]);
 	?OTBM_ATTR_TELE_DEST ->
 	    <<X:16/?UINT,Y:16/?UINT,Z:8/?UINT,Rest2/binary>> = Rest,
-	    get_item_attributes(Rest2, [{tele_destination, #coord{x=X,y=Y,z=Z}}|Attributes])
+	    get_item_attributes(Rest2, [{tele_destination, #coord{x=X,y=Y,z=Z}}|Attributes]);
+	?OTBM_ATTR_HOUSEDOORID ->
+	    <<DoorId:8/?UINT,Rest2/binary>> = Rest,
+	    get_item_attributes(Rest2, [{door_id,DoorId}|Attributes]);
+	?OTBM_ATTR_DEPOT_ID ->
+	    <<DepotId:16/?UINT,Rest2/binary>> = Rest,
+	    get_item_attributes(Rest2, [{depot_id,DepotId}|Attributes])
+
 	    
     end.
 
@@ -321,8 +330,8 @@ load_spawns(File) ->
     try ets:new(spawns,[{keypos, #monster.name},
 			ordered_set, protected,
 			named_table])
-    catch _:Reason ->
-	    throw({load_spawns, [{error, Reason}]})
+    catch _:badarg ->
+	    throw({load_spawns, [{error, {badarg,name}}]})
     end,
     io:format("File: ~p\n", [File]),
     {R,[]} = xmerl_scan:file(File,
@@ -367,20 +376,17 @@ parse_spawn([#xmlElement{name = Type,
 		  outfit = Outfit}] ->
 	    MapCoord = C#coord{x=X+Pos#coord.x,
 			       y=Y+Pos#coord.y},
-	    case ets:lookup(map,MapCoord) of
-		[Tile=#tile{creatures = Creatures}] ->
-		    Monster = #creature{name = Name,
-					health = Health,
-					direction = 2,
-					outfit = Outfit,
-					speed = Speed,
-					light = {0,0},
-					skull = 0,
-					shield = 0},
-		    ets:insert(map,Tile#tile{creatures = [Monster|Creatures]});
-		[] ->
-		    throw({parse_spawn, [{no_such_coord,MapCoord}]})
-	    end;
+	    Monster = #creature{pos = MapCoord,
+				id = tibia_login:set_id(monster),
+				name = Name,
+				health = Health,
+				direction = 2,
+				outfit = Outfit,
+				speed = Speed,
+				light = {0,0},
+				skull = 0,
+				shield = 0},
+	    ets:insert(creatures,Monster);
 	[] ->
 	    throw({parse_spawn, [{no_such_monster,Name}]})
     end,
