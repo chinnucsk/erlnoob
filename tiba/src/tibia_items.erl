@@ -94,14 +94,14 @@ test_xml(Id) ->
 
 load(OtbFile, XmlFile) ->
     load_otb(OtbFile),
-    load_xml(XmlFile).
+    load_xml(XmlFile),
+    done.
 
     
 load_otb(File) ->
     try ets:new(item_types, [{keypos, #item_type.server_id},
 			     ordered_set, protected,
 			     named_table]),
-	io:format("Loading items: ~p\n", [File]),
 	Node = tibia_files:parse(File),
 	parse_otb(Node)
     catch throw:Reason ->

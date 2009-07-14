@@ -55,11 +55,6 @@ creature_turn(ID, #coord{x=X,y=Y,z=Z}, Dir) ->
      Dir>>.
 
 
-get_tile(Pos) ->
-    ok.
-
-
-
 max(A,B) ->
     if A > B -> A;
        true ->  B
@@ -108,7 +103,7 @@ floor_description(Pos, Width,Height,Skip) ->
 x(Pos,NX,Width,Height,Skip,Acc) when NX < Width ->
     {Acc2,Skip2} = y(Pos, {NX,0},Height,Skip, <<>>),
     x(Pos, NX+1, Width, Height,Skip2, <<Acc/binary,Acc2/binary>>);
-x(_,X,_,_,Skip,Acc) ->
+x(_,_,_,_,Skip,Acc) ->
     {Acc,Skip}.
 
 y(Pos=#coord{x=X,y=Y},{NX,NY},Height,Skip,Acc) when NY < Height ->
@@ -130,7 +125,7 @@ y(Pos=#coord{x=X,y=Y},{NX,NY},Height,Skip,Acc) when NY < Height ->
 		    y(Pos,{NX,NY+1},Height,Skip2,Acc)
 	    end
     end;
-y(_Pos, {_,Y}, _Height,Skip,Acc) ->
+y(_Pos, {_,_}, _Height,Skip,Acc) ->
     {Acc,Skip}.
 
 
@@ -209,27 +204,38 @@ outfit(#outfit{type = Type,
 -define(SOUTH, 16#67).
 -define(WEST,  16#68).
 
-move_creature(C=#coord{x=X,y=Y,z=Z},Dir) ->
-    io:format("16#~.16B ", [Dir]),
+move_creature(C=#coord{x=OldX,y=OldY,z=OldZ},Dir) ->
     case Dir of
-	?NORTH -> NewX = X,   NewY = Y-1, NewZ = Z;
-	?EAST  -> NewX = X+1, NewY = Y,   NewZ = Z;
-	?SOUTH -> NewX = X,   NewY = Y+1, NewZ = Z;
-	?WEST  -> NewX = X-1, NewY = Y,   NewZ = Z
+	?NORTH -> NewX = OldX,   NewY = OldY-1;
+	?EAST  -> NewX = OldX+1, NewY = OldY;
+	?SOUTH -> NewX = OldX,   NewY = OldY+1;
+	?WEST  -> NewX = OldX-1, NewY = OldY
     end,
-	    
-    B =
-	if Y > NewY -> % Norhh
-		<<16#65,(map_description(C#coord{x=X-8,y=Y-6},18,1))/binary>>;
-	   Y < NewY -> % South
-		<<16#67,(map_description(C#coord{x=X-8,y=Y+7},18,1))/binary>>;
-	   X < NewX -> % East
-		<<16#66,(map_description(C#coord{x=X+9,y=Y-6},1,14))/binary>>;
-	   X > NewX -> % West
-		<<16#68,(map_description(C#coord{x=X-8,y=Y-6},1,14))/binary>>
-    end,
-    {<<16#6D,
-      X:16/?UINT,Y:16/?UINT,Z:8/?UINT,
-      1,
-      NewX:16/?UINT,NewY:16/?UINT,NewZ:8/?UINT,
-      B/binary>>,C#coord{x=NewX,y=NewY}}.
+    NewCoord = C#coord{x=NewX,y=NewY},	    
+    case ets:lookup(map,NewCoord) of
+	[] ->
+	    Msg = <<"Sorry not possible.">>,
+	    {<<16#B4,16#1A,
+	      (byte_size(Msg)):16/?UINT,Msg/binary,
+	      (cancel_walk(Dir - 16#65))/binary>>, C};
+	_ ->
+	    B =
+		if OldY > NewY -> % North
+			<<16#65,(map_description(C#coord{x=OldX-8,y=NewY-6},18,1))/binary>>;
+		   OldY < NewY -> % South
+			<<16#67,(map_description(C#coord{x=OldX-8,y=NewY+7},18,1))/binary>>;
+		   OldX < NewX -> % East
+			<<16#66,(map_description(C#coord{x=NewX+9,y=NewY-6},1,14))/binary>>;
+		   OldX > NewX -> % West
+			<<16#68,(map_description(C#coord{x=NewX-8,y=NewY-6},1,14))/binary>>
+		end,
+	    {<<16#6D,
+	      OldX:16/?UINT,OldY:16/?UINT,OldZ:8/?UINT,
+	      1,
+	      NewX:16/?UINT,NewY:16/?UINT,OldZ:8/?UINT,
+	      B/binary>>,NewCoord}
+    end.
+
+
+cancel_walk(Dir) ->
+    <<16#B5,Dir>>.

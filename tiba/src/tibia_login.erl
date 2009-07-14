@@ -68,24 +68,25 @@ parse_first_game_packet(State, Msg) ->
 	       k3 = K3,
 	       k4 = K4},
 
-	case mnesia:transaction(?LOOKUP_PLAYER(binary_to_list(Name))) of
-	    {atomic, [Player=#player{pos=Pos=#coord{x=X,y=Y}}]} ->
-		Player;
-	    _ ->
-		io:format("Couldnt find player: ~p\n", [Name]),
-		Player = error,
-		Pos=X=Y= error,
-		tibia_proxy:disconnect(State,
-				       <<"You need to create a character.">>)
-	end,
+    case mnesia:transaction(?LOOKUP_PLAYER(binary_to_list(Name))) of
+	{atomic, [Player=#player{pos=Pos=#coord{x=X,y=Y}}]} ->
+	    Player;
+	_ ->
+	    io:format("Couldnt find player: ~p\n", [Name]),
+	    Player = error,
+	    Pos=X=Y= error,
+	    tibia_proxy:disconnect(State,
+				   <<"You need to create a character.">>)
+    end,
+    Id = set_id(player),
     P = #creature{pos = Player#player.pos,
-		  id = set_id(player),
+		  id = Id,
 		  name = binary_to_list(Name),
 		  health = {100,200},
 		  direction = Player#player.direction,
 		  outfit = Player#player.outfit,
 		  light = {0,0},
-		  speed = 220,
+		  speed = 65000,
 		  skull = 1,
 		  shield = 1},
     io:format("~p\n", [P#creature.id]),
@@ -97,10 +98,10 @@ parse_first_game_packet(State, Msg) ->
 	      16#00, % Custom flag - can report bugs
 
 	      16#64, % Map description starts
-	      4,0, 4,0, 7, % Coord (X,Y,Z)
+	      X:16/?UINT, Y:16/?UINT, (Pos#coord.z), % Coord (X,Y,Z)
 	      (tibia_message:map_description(Pos#coord{x=X-8,y=Y-6},18,14))/binary,
 	      131, % Magic effect
-	      4,0, 4,0, 7, % Magic effect pos (X,Y,Z)
+	      X:16/?UINT, Y:16/?UINT, (Pos#coord.z), % Magic effect pos (X,Y,Z)
 	      15, % Magic effect type
 
 	      121,1,       % SLOT_HEAD
@@ -115,15 +116,58 @@ parse_first_game_packet(State, Msg) ->
 	      121,8,   	   % SLOT_FEET
 	      121,9,	   % SLOT_RING
 	      121,10,      % SLOT_AMMO
-	      160,175,0,185,0,236,144,0,0,0,0,0,0,
-	      1,0,0,35,0,35,0,0,0,100,32,13,161,10,0,10,
-	      12,10,0,10,0,10,0,10,0,10,0,130,250,215,141,
-	      233,3,0,16,0,0,180,24,21,0,87,101,108,99,111,
-	      109,101,32,116,111,32,80,111,119,101,114,102,
-	      108,105,112,33,180,24,48,0,89,111,117,114,32,
-	      108,97,115,116,32,118,105,115,105,116,32,119,
-	      97,115,32,111,110,32,83,117,110,32,74,117,110,
-	      32,50,56,32,49,52,58,49,56,58,48,55,32,50,48,48,57,46>>,
+	      160, % Player stats begin
+	      175,0, % Health
+	      185,0, % Max health
+	      236,144,0,0, % Free capacity * 100
+	      0,0,0,0, % Experience NOTE: Windows client debugs after 16#7FFFFFFF exp
+	      1,0, % Player level
+	      0, % Level percent
+	      35,0, % Mana
+	      35,0, % Max mana
+	      0, % Magic level
+	      0, % Magic level percent
+	      100, % Soul points
+	      32,13, % Stamina minutes
+	      161, % Player skills begin
+	      10, % Fist skill
+	      0,  % Fist percent
+	      10, % Club skill
+	      12, % Club percent
+	      10, % Sword skill
+	      0,  % Sword percent
+	      10, % Axe skill
+	      0,  % Axe percent
+	      10, % Dist skill
+	      0,  % Dist percent
+	      10, % Shield skill
+	      0,  % Shield percent
+	      10, % Fish skill
+	      0,  % Fish percent
+	      130, % World light
+	      250, % Light level
+	      215, % Light color
+	      141, % Creature light
+	      233,3,0,16, % Creature ID
+	      0, % Light level
+	      0, % Light color
+	      180, % Text message
+	      24, % Message class
+	      21,0, % Message size
+	      % Message begin
+	      87,101,108,99,111,109,101,32,116,111,32,
+	      80,111,119,101,114,102,108,105,112,33,
+	      % Message end
+	      180, % Text message
+	      24, % Message class
+	      48,0, % Message size
+	      % Message begin
+	      89,111,117,114,32,108,97,115,116,32,118,105,
+	      115,105,116,32,119,97,115,32,111,110,32,83,
+	      117,110,32,74,117,110,32,50,56,32,49,52,58,
+	      49,56,58,48,55,32,50,48,48,57,46
+	      % Message end
+	      >>,
     Reply = xtea:encrypt(Key, <<(byte_size(Reply0)):16/?UINT,
 			       Reply0/binary>>),
     %%Reply= get_map_description(Player#player.pos),
@@ -132,7 +176,7 @@ parse_first_game_packet(State, Msg) ->
     %%Reply = xtea:encrypt(Key, <<(Size+4):16/?UINT,16#16:8/?UINT,Size:16/?UINT,(WaitList)/binary,20:8/?UINT>>),
 
     {check_account(State#state{key = Key,
-			       player = Player}, Acc, Pass),
+			       player = Player#player{id=Id}}, Acc, Pass),
      <<(byte_size(Reply)+4):16/?UINT,
       (erlang:adler32(Reply)):32/?UINT,
       Reply/binary>>}.
@@ -142,7 +186,6 @@ check_account(State, Acc, Pass) ->
     if byte_size(Acc) =:= 0 ->
 	    tibia_proxy:disconnect(State,
 				   <<"You need to enter an account number.">>);
-	    ok;
        true ->
 	    ignore
     end,

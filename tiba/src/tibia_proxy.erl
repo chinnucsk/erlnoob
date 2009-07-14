@@ -31,6 +31,21 @@ install() ->
 
     
 
+test() ->
+    creatures = ets:new(creatures, [{keypos, #creature.id},
+				    set,
+				    public,
+				    named_table]),
+    done = tibia_items:load("items.otb", "items.xml"),
+    done = tibia_monsters:load_monsters("../monster/monsters.xml"),
+    done = tibia_iomap:load("forgotten.otbm"),
+    io:format("everything is ok\n"),
+    true = ets:delete(items),
+    true = ets:delete(item_types),
+    true = ets:delete(creatures),
+    true = ets:delete(spawns),
+    true = ets:delete(monsters),
+    true = ets:delete(map).
 
 start() ->
     start(?PROXY_PORT).
@@ -42,13 +57,13 @@ start(Port) ->
 
 tcp_start(ListenPort) ->
     process_flag(trap_exit, true),
-    ets:new(creatures, [{keypos, #creature.name},
+    ets:new(creatures, [{keypos, #creature.id},
 			set,
 			public,
 			named_table]),
     tibia_items:load("items.otb", "items.xml"),
     tibia_monsters:load_monsters("../monster/monsters.xml"),
-    tibia_iomap:load("forgotten.otbm"),
+    tibia_iomap:load("test.otbm"),
     {ok, ListenSocket} = gen_tcp:listen(ListenPort, [binary, inet]),
     
     io:format("Server is running.\n", []),
@@ -139,7 +154,7 @@ tcp_loop(State=#state{client_socket = ClientSocket,
 	Any ->
 	    io:format("tcp unknown message ~p\n", [Any]),
 	    ?MODULE:tcp_loop(State)
-    after 1000 ->
+    after 5000 ->
 	    Reply = tibia_parse:prepare_send(State#state.key,<<16#1E>>),
 	    gen_tcp:send(State#state.client_socket,Reply),
 	    ?MODULE:tcp_loop(State)

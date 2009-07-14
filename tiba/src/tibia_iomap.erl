@@ -87,24 +87,22 @@ test() ->
 
 
 load(File) ->
-    io:format("Loading map: ~p\n", [File]),
     ets:new(map, [{keypos, #tile.coord},
 		    set,
 		    public,
 		    named_table]),
     Data = tibia_files:parse(File),
-    done = load_map(Data),
-    Base = filename:basename(File, ".otbm"),
-    load_spawns(Base ++ "-spawn.xml").
+    Header = load_map(Data),
+    load_spawns(binary_to_list(Header#header.spawn_file)).
 
 
 
 
 
 load_map(Nodes) ->
-    {_Header,Nodes2} = get_header(Nodes),
+    {Header,Nodes2} = get_header(Nodes),
     load_map(Nodes2, []),
-    done.
+    Header.
 
 load_map([], Acc) ->
     lists:reverse(lists:flatten(Acc));
@@ -333,7 +331,6 @@ load_spawns(File) ->
     catch _:badarg ->
 	    throw({load_spawns, [{error, {badarg,name}}]})
     end,
-    io:format("File: ~p\n", [File]),
     {R,[]} = xmerl_scan:file(File,
 			     [{space,normalize},
 			      {acc_fun, Fun}]),

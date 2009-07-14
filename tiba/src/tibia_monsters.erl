@@ -29,7 +29,7 @@ load_monsters(File) ->
 	{R,[]} = xmerl_scan:file(File, [{space,normalize}, {acc_fun, ?ACCFUN}]),
 	Monsters = parse_monsters_xml(R),
 	parse_monsters(Monsters),
-	ok
+	done
     catch
 	_:Reason ->
 	    throw({error,Reason})

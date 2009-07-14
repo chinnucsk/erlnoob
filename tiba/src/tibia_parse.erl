@@ -15,7 +15,7 @@
 
 -record(character, {name,server_name,ip,port}).
 
-parse_server_packet(State,Packet = <<Checksum:32/?UINT,Msg/binary>>) ->
+parse_server_packet(State,Packet = <<_Checksum:32/?UINT,Msg/binary>>) ->
     Decrypted = xtea:decrypt(State#state.key,Msg),
     <<_Size:16/?UINT, Protocol:8/?UINT,Message/binary>> = Decrypted,
     Reply =
@@ -72,7 +72,7 @@ get_characters(NumChars, <<NameSize:16/?UINT,Name:NameSize/binary,
     get_characters(NumChars-1,Chars,[Char|Acc]).
 
 parse_client_packet(State, Packet) when State#state.account =:= undefined ->
-    <<Checksum:32/?UINT,ProtocolId:8/?UINT,_OS:16/?UINT,
+    <<_Checksum:32/?UINT,ProtocolId:8/?UINT,_OS:16/?UINT,
      _Version:16/?UINT,Msg/binary>> = Packet,
     case ProtocolId of
 	?LOGIN_PROTOCOL ->
@@ -87,8 +87,8 @@ parse_client_packet(State, Packet) when State#state.account =:= undefined ->
 	    io:format("Other protocol: ~p\n", [ProtocolId]),
 	    State
     end;
-parse_client_packet(State=#state{player = P=#player{pos = Pos}},
-		    <<Checksum:32/?UINT,Msg/binary>>) ->
+parse_client_packet(State=#state{player = P},
+		    <<_Checksum:32/?UINT,Msg/binary>>) ->
     Decrypted = xtea:decrypt(State#state.key, Msg),
     <<Size:16/?UINT, Msg2:Size/binary,_/binary>> = Decrypted,
     <<RecvByte,  Data/binary>> = Msg2,
@@ -99,22 +99,38 @@ parse_client_packet(State=#state{player = P=#player{pos = Pos}},
 	16#a0 ->
 	    ok;
 	16#1E ->
-	    io:format("ping\n");
+	    ok;
 	Dir when Dir >= 16#6F, Dir =< 16#72 ->
+	    [C] = ets:lookup(creatures, P#player.id),
 	    Turn =
-		tibia_message:creature_turn(268436457,
-					    #coord{x=4,y=4,z=7},
+		tibia_message:creature_turn(C#creature.id,
+					    C#creature.pos,
 					    Dir - 16#6F),
+	    true = ets:insert(creatures,C#creature{direction = Dir - 16#6F}),
 	    Reply = prepare_send(State#state.key,Turn),
 	    gen_tcp:send(State#state.client_socket,Reply);
 	Dir when Dir >= 16#65, Dir =< 16#68 ->
+	    [C] = ets:lookup(creatures, P#player.id),
 	    {Move,NewPos} =
-		tibia_message:move_creature(Pos,
+		tibia_message:move_creature(C#creature.pos,
 					    Dir),
-	    [C] = ets:lookup(creatures, P#player.name),
-	    true = ets:insert(creatures,C#creature{pos = NewPos}),
-	    io:format("~p\n", [Move]),
+	    true = ets:insert(creatures,C#creature{pos = NewPos,
+						   direction = Dir - 16#65}),
 	    Reply = prepare_send(State#state.key, Move),
+	    gen_tcp:send(State#state.client_socket,Reply);
+%% 	Dir when Dir >= 16#6A, Dir =< 16#6D ->
+%% 	    [C] = ets:lookup(creatures, P#player.name),
+%% 	    {Move,NewPos} =
+%% 		tibia_message:move_creature(C#creature.pos,
+%% 					    Dir),
+%% 	    true = ets:insert(creatures,C#creature{pos = NewPos,
+%% 						   direction = Dir - 16#65}),
+%% 	    Reply = prepare_send(State#state.key, Move),
+%% 	    gen_tcp:send(State#state.client_socket,Reply);
+	16#69 ->
+	    [C] = ets:lookup(creatures, P#player.id),
+	    Reply = prepare_send(State#state.key,
+				 tibia_message:cancel_walk(C#creature.direction)),
 	    gen_tcp:send(State#state.client_socket,Reply);
 
 	_ ->
