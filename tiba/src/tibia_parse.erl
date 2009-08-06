@@ -49,7 +49,7 @@ build_characters([#player{name = Name}|Chars], Acc) ->
     build_characters(Chars, <<Acc/binary,(length(Name)):16/?UINT,
 			     (list_to_binary(Name))/binary,
 			     (byte_size(<<"powerflip">>)):16/?UINT,(<<"powerflip">>)/binary,
-			     (list_to_binary([127,0,0,1]))/binary,7172:16/?UINT>>);
+			     (<<192,168,1,98>>)/binary,7172:16/?UINT>>);
 build_characters([], Acc) ->
     <<16#64:8/?UINT,Acc/binary,20:16/?UINT>>.
 

@@ -82,14 +82,13 @@ parse_first_game_packet(State, Msg) ->
     P = #creature{pos = Player#player.pos,
 		  id = Id,
 		  name = binary_to_list(Name),
-		  health = {100,200},
+		  health = Player#player.health,
 		  direction = Player#player.direction,
 		  outfit = Player#player.outfit,
 		  light = {0,0},
 		  speed = 65000,
 		  skull = 1,
 		  shield = 1},
-    io:format("~p\n", [P#creature.id]),
     ets:insert(creatures,P),
     Reply0 = <<16#0A,
 	      (P#creature.id):32/?UINT, % Player ID
@@ -207,27 +206,27 @@ set_id(player) ->
     case get(id_player) of
 	undefined ->
 	    put(id_player,16#10000001),
-	    16#10000001;
+	    get(id_player);
 	Prev ->
 	    put(id_player, Prev+1),
-	    Prev+1
+	    get(id_player)
     end;
 set_id(npc) ->
     case get(id_npc) of
 	undefined ->
 	    put(id_npc,16#30000001),
-	    16#30000001;
+	    get(id_npc);
 	Prev ->
 	    put(id_npc, Prev+1),
-	    Prev+1
+	    get(id_npc)
     end;
 set_id(monster) ->
     case get(id_monster) of
 	undefined ->
 	    put(id_monster,16#60000001),
-	    16#60000001;
+	    get(id_monster);
 	Prev ->
 	    put(id_monster, Prev+1),
-	    Prev+1
+	    get(id_monster)
     end.
     
