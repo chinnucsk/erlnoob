@@ -1,230 +1,0 @@
-9
-
-dir
-54
-http://svn.otland.net/public/forgottenserver/tags/0.3b3/data/monster
-http://svn.otland.net/public/forgottenserver
-
-
-
-2009-01-20T03:15:51.919635Z
-38
-elf
-
-
-svn:special svn:externals svn:needs-lock
-
-
-
-
-
-
-
-
-
-
-
-c9a09181-f965-4d2b-ae35-af08e9401e19
-
-Pyro-Elementals
-dir
-
-Elephants
-dir
-
-Djinns
-dir
-
-Demons
-dir
-
-Monks
-dir
-
-Reptiles
-dir
-
-Apes
-dir
-
-Traps
-dir
-
-Misc
-dir
-
-Bears
-dir
-
-Quaras
-dir
-
-Annelids
-dir
-
-Birds
-dir
-
-Cryo-Elementals
-dir
-
-Orcs
-dir
-
-Beholders
-dir
-
-Skeletons
-dir
-
-Lizards
-dir
-
-Shapeshifters
-dir
-
-Rats
-dir
-
-Cultists
-dir
-
-Custom
-dir
-
-Dwarves
-dir
-
-Crustaceans
-dir
-
-Elves
-dir
-
-Necromancers
-dir
-
-Trolls
-dir
-
-Frogs
-dir
-
-Energy-Elementals
-dir
-
-Canines
-dir
-
-Minotaurs
-dir
-
-Aracnids
-dir
-
-Giants
-dir
-
-Felines
-dir
-
-Arena
-dir
-
-Machines
-dir
-
-Sheeps
-dir
-
-Tortoises
-dir
-
-Dragons
-dir
-
-Bosses
-dir
-
-Outlaws
-dir
-
-Plant-Like
-dir
-
-Slime-Elementals
-dir
-
-Geo-Elementals
-dir
-
-Dworcs
-dir
-
-Chakoyas
-dir
-
-Mutated
-dir
-
-Barbarians
-dir
-
-Pharaohs
-dir
-
-Ghosts
-dir
-
-Pirates
-dir
-
-Sorcerers
-dir
-
-Insects
-dir
-
-Amazons
-dir
-
-Undead Humanoids
-dir
-
-monsters.xml
-file
-
-
-
-
-2009-05-03T09:07:26.000000Z
-221a5ade23db5d2eaf8bb9902c1fae89
-2009-01-20T01:42:22.926680Z
-37
-elf
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-24460
-
-Hydro-Elementals
-dir
-
