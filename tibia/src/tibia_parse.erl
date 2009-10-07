@@ -111,13 +111,16 @@ parse_client_packet(State=#state{player = P},
 	    gen_tcp:send(State#state.client_socket,Reply);
 	Dir when Dir >= 16#65, Dir =< 16#68 ->
 	    [C] = ets:lookup(creatures, P#player.id),
-	    {Move,NewPos} =
-		tibia_message:move_creature(C#creature.pos,
-					    Dir),
-	    true = ets:insert(creatures,C#creature{pos = NewPos,
-						   direction = Dir - 16#65}),
-	    Reply = prepare_send(State#state.key, Move),
-	    gen_tcp:send(State#state.client_socket,Reply);
+	    Reply = tibia_message:move_creature(C, Dir),
+	    send(State, Reply);
+	16#64 -> %% Auto walk
+	    Path = tibia_message:auto_walk(Data),
+	    io:format("~p\n", [Data]),
+	    io:format("~w\n", [Path]),
+	    [C] = ets:lookup(creatures, P#player.id),
+	    spawn_link(tibia_message, do_auto_walk,
+		       [State, C, Path]);
+	    
 %% 	Dir when Dir >= 16#6A, Dir =< 16#6D ->
 %% 	    [C] = ets:lookup(creatures, P#player.name),
 %% 	    {Move,NewPos} =
@@ -129,16 +132,18 @@ parse_client_packet(State=#state{player = P},
 %% 	    gen_tcp:send(State#state.client_socket,Reply);
 	16#69 ->
 	    [C] = ets:lookup(creatures, P#player.id),
-	    Reply = prepare_send(State#state.key,
-				 tibia_message:cancel_walk(C#creature.direction)),
-	    gen_tcp:send(State#state.client_socket,Reply);
+	    Reply = tibia_message:cancel_walk(C#creature.direction),
+	    send(State,Reply);
 
 	_ ->
 	    io:format("Msg: ~p ~p\n", [RecvByte, Data])
     end,
     State.
 
-
+send(State, Message) when is_binary(Message) ->
+    Reply = prepare_send(State#state.key, Message),
+    gen_tcp:send(State#state.client_socket,Reply).
+    
 
 prepare_send(Key, Bin) when is_binary(Bin) ->
     Encrypted = xtea:encrypt(Key, <<(byte_size(Bin)):16/?UINT,Bin/binary>>),

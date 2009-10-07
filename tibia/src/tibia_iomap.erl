@@ -91,6 +91,7 @@ load(File) ->
 		    set,
 		    public,
 		    named_table]),
+    io:format("Loading map: ~p\n", [File]),
     Data = tibia_files:parse(File),
     Header = load_map(Data),
     load_spawns(binary_to_list(Header#header.spawn_file)).
@@ -320,6 +321,7 @@ parse_header(<<Attr:8/?UINT,Rest/binary>>, Attrs) ->
 
 
 load_spawns(File) ->
+    io:format("Loading spawns: ~p\n", [File]),
     Fun = fun(#xmlText{value = " ", pos = P}, A, S) ->
 		  {A, P, S};  % new return format
 	     (X, A, S) ->

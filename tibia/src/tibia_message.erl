@@ -199,25 +199,33 @@ outfit(#outfit{type = Type,
 	    <<Type:16/?UINT,23,12>>
     end.
 
--define(NORTH, 16#65).
--define(EAST,  16#66).
--define(SOUTH, 16#67).
--define(WEST,  16#68).
+-define(NORTH,     16#65). % 101
+-define(EAST,      16#66). % 102
+-define(SOUTH,     16#67). % 103
+-define(WEST,      16#68). % 104
+-define(NORTHEAST, 16#6A). % 106
+-define(SOUTHEAST, 16#6B). % 107
+-define(SOUTHWEST, 16#6C). % 108
+-define(NORTHWEST, 16#6D). % 109
 
-move_creature(C=#coord{x=OldX,y=OldY,z=OldZ},Dir) ->
+move_creature(Creature=#creature{pos=C=#coord{x=OldX,y=OldY,z=OldZ}},Dir) ->
     case Dir of
-	?NORTH -> NewX = OldX,   NewY = OldY-1;
-	?EAST  -> NewX = OldX+1, NewY = OldY;
-	?SOUTH -> NewX = OldX,   NewY = OldY+1;
-	?WEST  -> NewX = OldX-1, NewY = OldY
+	?NORTH     -> NewX = OldX,   NewY = OldY-1;
+	?EAST      -> NewX = OldX+1, NewY = OldY;
+	?SOUTH     -> NewX = OldX,   NewY = OldY+1;
+	?WEST      -> NewX = OldX-1, NewY = OldY;
+	?NORTHEAST -> NewX = OldX+1, NewY = OldY-1;
+	?NORTHWEST -> NewX = OldX-1, NewY = OldY-1;
+	?SOUTHEAST -> NewX = OldX+1, NewY = OldY+1;
+	?SOUTHWEST -> NewX = OldX-1, NewY = OldY+1
     end,
     NewCoord = C#coord{x=NewX,y=NewY},	    
     case ets:lookup(map,NewCoord) of
 	[] ->
 	    Msg = <<"Sorry not possible.">>,
-	    {<<16#B4,16#1A,
-	      (byte_size(Msg)):16/?UINT,Msg/binary,
-	      (cancel_walk(Dir - 16#65))/binary>>, C};
+	    <<16#B4,16#1A,
+	     (byte_size(Msg)):16/?UINT,Msg/binary,
+	     (cancel_walk(Dir - 16#65))/binary>>;
 	_ ->
 	    B =
 		if OldY > NewY -> % North
@@ -229,13 +237,52 @@ move_creature(C=#coord{x=OldX,y=OldY,z=OldZ},Dir) ->
 		   OldX > NewX -> % West
 			<<16#68,(map_description(C#coord{x=NewX-8,y=NewY-6},1,14))/binary>>
 		end,
-	    {<<16#6D,
-	      OldX:16/?UINT,OldY:16/?UINT,OldZ:8/?UINT,
-	      1,
-	      NewX:16/?UINT,NewY:16/?UINT,OldZ:8/?UINT,
-	      B/binary>>,NewCoord}
+	    true = ets:insert(creatures,Creature#creature{pos = NewCoord,
+							  direction = Dir - 16#65}),
+
+	    <<16#6D,
+	     OldX:16/?UINT,OldY:16/?UINT,OldZ:8/?UINT,
+	     1,
+	     NewX:16/?UINT,NewY:16/?UINT,OldZ:8/?UINT,
+	     B/binary>>
     end.
 
 
 cancel_walk(Dir) ->
     <<16#B5,Dir>>.
+
+
+
+auto_walk(Data) ->
+    auto_walk(Data, <<>>).
+
+auto_walk(<<Byte:8/?UINT, Rest/binary>>, Path) ->
+    case Byte of
+	1 -> % East
+	    auto_walk(Rest, <<Path/binary, ?EAST>>);
+	2 -> % North-east
+	    auto_walk(Rest, <<Path/binary, ?NORTHEAST>>);
+	3 -> % North
+	    auto_walk(Rest, <<Path/binary, ?NORTH>>);
+	4 -> % North-west
+	    auto_walk(Rest, <<Path/binary, ?NORTHWEST>>);
+	5 -> % West
+	    auto_walk(Rest, <<Path/binary, ?WEST>>);
+	6 -> % South-west
+	    auto_walk(Rest, <<Path/binary, ?SOUTHWEST>>);
+	7 -> % South
+	    auto_walk(Rest, <<Path/binary, ?SOUTH>>);
+	8 -> % South-east
+	    auto_walk(Rest, <<Path/binary, ?SOUTHEAST>>)
+    end;
+auto_walk(<<>>, Path) ->
+    Path.
+
+
+do_auto_walk(State, Creature, <<Direction, Rest/binary>>) ->
+    Reply = move_creature(Creature, Direction),
+    tibia_parse:send(State, Reply),
+    timer:sleep(500),
+    do_auto_walk(State, Creature, Rest);
+do_auto_walk(_State,_, <<>>) ->
+    ok.
