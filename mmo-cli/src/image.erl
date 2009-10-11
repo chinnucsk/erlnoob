@@ -67,7 +67,7 @@ draw_sprite(Tid, X, Y, Scale) ->
     gl:texCoord2f(0.0, 0.0), gl:vertex2i(0, 0),
     gl:texCoord2f(0.0, 1.0), gl:vertex2i(0, 8),
     gl:texCoord2f(1.0, 1.0), gl:vertex2i(8, 8),
-    gl:texCoord2f(1.0, 0.0), gl:vertex2i(8, 8),
+    gl:texCoord2f(1.0, 0.0), gl:vertex2i(8, 0),
 
     gl:'end'(),
     gl:popMatrix().
@@ -117,6 +117,7 @@ load_texture_by_string(String) ->
 
 colourize_image(Alpha, {R,G,B}) ->
     << <<R:8,G:8,B:8,A:8>> || <<A:8,_:8,_:8>> <= Alpha >>.
+
 get_power_of_two_roof(X) ->
     get_power_of_two_roof_2(1, X).
 
@@ -132,10 +133,12 @@ read_bin(<<NumSprites:16/unsigned-integer, Data/binary>>) ->
     read_bin(Data, NumSprites, []).
 
 read_bin(<<Id:16/unsigned-integer,
+	  W:16/unsigned-integer,
+	  H:16/unsigned-integer,
 	  Size:16/unsigned-integer,
 	  Data:Size/binary, Rest/binary>>,
 	 Sprites, Acc) when Sprites > 1 ->
-    read_bin(Rest, Sprites-1, [{Id, Data}|Acc]);
+    read_bin(Rest, Sprites-1, [{Id, {W,H}, Data}|Acc]);
 read_bin(<<>>, 1, Acc) ->
     lists:keysort(1, Acc);
 read_bin(<<>>, _, _) ->
@@ -143,24 +146,28 @@ read_bin(<<>>, _, _) ->
 
 
 create_sprite_file(Dir, Filename) ->
-    Files = filelib:wildcard("*.bmp", Dir),
-    Bin = create_bin(Files),
+    Files0 = filelib:wildcard("*.bmp", Dir),
+    Files = [filename:join([Dir, File]) || File <- Files0],
+    Bin = create_bin(Files, Dir),
     file:write_file(Filename, Bin).
 
-create_bin(Files) ->
-    create_bin(Files, 1, <<>>).
+create_bin(Files, Dir) ->
+    create_bin(Files, Dir, 1, <<>>).
 
-create_bin([File | Files], Num, Acc) ->
-    {ok, Data} = file:read_file(File),
-    case filename:rootname(File) of
+create_bin([File | Files], Dir, Num, Acc) ->
+    Image = wxImage:new(File),
+    Data = wxImage:getData(Image),
+    case filename:rootname(filename:basename(File)) of
 	"qmark" ->
 	    Id = $?;
 	[Other] ->
 	    Id = Other
     end,
     Bin = <<Id:16/unsigned-integer,
+	   (wxImage:getWidth(Image)):16/unsigned-integer,
+	   (wxImage:getHeight(Image)):16/unsigned-integer,
 	   (byte_size(Data)):16/unsigned-integer,
 	   Data/binary>>,
-    create_bin(Files, Num+1, <<Acc/binary, Bin/binary>>);
-create_bin([], Id, Acc) ->
-    <<Id:16/unsigned-integer, Acc/binary>>.
+    create_bin(Files, Dir, Num+1, <<Acc/binary, Bin/binary>>);
+create_bin([], _Dir, Num, Acc) ->
+    <<Num:16/unsigned-integer, Acc/binary>>.

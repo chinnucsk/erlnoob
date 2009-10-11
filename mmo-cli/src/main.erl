@@ -33,7 +33,6 @@ init(_Opts) ->
     {Frame, Canvas} = gl_misc:window("hello world"),
     wxGLCanvas:connect(Canvas, size),
     wxGLCanvas:connect(Canvas, key_down),
-%%    wxGLCanvas:connect(Canvas, key_down),
     init_gl(Canvas),
     font:load_font("font.spr"),
     spawn_link(?MODULE, updater, [self(), 5000]),

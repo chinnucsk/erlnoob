@@ -15,8 +15,11 @@ load_font(FontFile) ->
 		   named_table,
 		   public,
 		   {keypos, 1}]),
-    Letters = image:read_from_sprite_file(FontFile),
-    Images = [{Id, wxBitmap:convertToImage(wxBitmap:new(Data, 8,8))} || {Id, Data} <- Letters],
+    Binarys = image:read_from_sprite_file(FontFile),
+    Images = [{Id, wxImage:new(W,H, Data)} || {Id, {W,H}, Data} <- Binarys],
+    [wxImage:initAlpha(Image) || {_, Image} <- Images],
+    [{_,Img}|_] = Images,
+    io:format("~p\n", [wxImage:getAlpha(Img)]),
     Font = [{Id, image:load_texture_by_image(Image)} || {Id, Image} <- Images],
     ets:insert(font, Font).
 
@@ -24,11 +27,11 @@ load_font(FontFile) ->
 draw_text([Letter|Rest], X,Y) ->
     case ets:lookup(font, Letter) of
 	[] ->
-	    io:format("Lookup failed\n", []),
-	    draw_text(Rest, X+8,Y);
+	    io:format("Lookup failed: ~p\n", [Letter]),
+	    draw_text(Rest, X+8*5,Y);
 	[{Letter, TId}] ->
-	    image:draw_sprite(TId, X,Y),
-	    draw_text(Rest, X+8, Y)
+	    image:draw_sprite(TId, X,Y, 5),
+	    draw_text(Rest, X+8*5, Y)
     end;
 draw_text([], _,_) ->
     ok.
