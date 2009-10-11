@@ -35,7 +35,7 @@ init(_Opts) ->
     wxGLCanvas:connect(Canvas, key_down),
     init_gl(Canvas),
     font:load_font("font.spr"),
-    spawn_link(?MODULE, updater, [self(), 5000]),
+    spawn_link(?MODULE, updater, [self()]),
     {Frame, #state{canvas = Canvas}}.
 
 handle_event(#wx{event = #wxKey{keyCode = ?WXK_ESCAPE}}, State) ->
@@ -57,8 +57,6 @@ handle_cast(_Msg, State) ->
 handle_info(update, State) ->
     draw_game_screen(),
     wxGLCanvas:swapBuffers(State#state.canvas),
-    timer:sleep(50),
-    self() ! update,
     {noreply, State}.
 
 terminate(_Reason, _State) ->
@@ -100,12 +98,10 @@ resize(W,H) ->
 
 
 
-updater(Pid, N) when N > 0->
+updater(Pid) ->
     Pid ! update,
     timer:sleep(100),
-    updater(Pid, N-1);
-updater(_, _) ->
-    ok.
+    updater(Pid).
 
 -define(SIZE, 4).
 -define(SS, 16 * ?SIZE).
