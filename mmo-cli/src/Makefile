@@ -4,7 +4,10 @@ ERLINC = ../include
 ERL_FLAGS = -I$(ERLINC) +warn_unused_vars +debug_info
 
 MODULES = \
+	gl_misc \
+	font \
 	main \
+	image \
 	xtea
 
 INCLUDES =
