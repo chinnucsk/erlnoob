@@ -16,10 +16,11 @@ load_font(FontFile) ->
 		   public,
 		   {keypos, 1}]),
     Binarys = image:read_from_sprite_file(FontFile),
-    Images = [{Id, wxImage:new(W,H, Data)} || {Id, {W,H}, Data} <- Binarys],
-    [wxImage:initAlpha(Image) || {_, Image} <- Images],
-    [{_,Img}|_] = Images,
-    io:format("~p\n", [wxImage:getAlpha(Img)]),
+    {_,_,D,_} = hd(Binarys),
+    io:format("~p\n", [D]),
+    Images = [{Id, wxImage:new(W,H, Data, Alpha)} || {Id, {W,H}, Data, Alpha} <- Binarys],
+    {_,Img} = hd(Images),
+    io:format("~p\n", [wxImage:getData(Img)]),
     Font = [{Id, image:load_texture_by_image(Image)} || {Id, Image} <- Images],
     ets:insert(font, Font).
 

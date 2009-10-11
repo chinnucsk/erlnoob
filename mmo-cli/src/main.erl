@@ -112,4 +112,4 @@ updater(Pid) ->
 		    {?SS*0,?SS*4},{?SS*1,?SS*4},{?SS*2,?SS*4},{?SS*3,?SS*4}]).
 
 draw_game_screen() ->
-    font:draw_text("olle", 100, 100).
+    font:draw_text("ollemattsson", 100, 100).

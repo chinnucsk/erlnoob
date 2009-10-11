@@ -25,7 +25,7 @@ load_texture_by_image(Image) ->
     gl:texParameteri(?GL_TEXTURE_2D, ?GL_TEXTURE_MAG_FILTER, ?GL_NEAREST),
     gl:texParameteri(?GL_TEXTURE_2D, ?GL_TEXTURE_MIN_FILTER, ?GL_NEAREST),
     Format = case wxImage:hasAlpha(Image) of
-		 true -> ?GL_RGBA;
+		 true -> ?GL_RGB;
 		 false -> ?GL_RGB
 	     end,
     gl:texImage2D(?GL_TEXTURE_2D, 0,
@@ -38,7 +38,8 @@ get_data(Image) ->
     case wxImage:hasAlpha(Image) of
 	true ->
 	    Alpha = wxImage:getAlpha(Image),
-	    interleave_rgb_and_alpha(RGB, Alpha);
+	    interleave_rgb_and_alpha(RGB, Alpha),
+	    RGB;
 	false ->
 	    RGB
     end.
@@ -135,18 +136,21 @@ read_bin(<<NumSprites:16/unsigned-integer, Data/binary>>) ->
 read_bin(<<Id:16/unsigned-integer,
 	  W:16/unsigned-integer,
 	  H:16/unsigned-integer,
-	  Size:16/unsigned-integer,
-	  Data:Size/binary, Rest/binary>>,
+	  DataSize:16/unsigned-integer,
+	  Data:DataSize/binary,
+	  AlphaSize:16/unsigned-integer,
+	  Alpha:AlphaSize/binary,
+	  Rest/binary>>,
 	 Sprites, Acc) when Sprites > 1 ->
-    read_bin(Rest, Sprites-1, [{Id, {W,H}, Data}|Acc]);
+    read_bin(Rest, Sprites-1, [{Id, {W,H}, Data, Alpha}|Acc]);
 read_bin(<<>>, 1, Acc) ->
     lists:keysort(1, Acc);
-read_bin(<<>>, _, _) ->
-    io:format("something went wrong\n", []).
+read_bin(_, _, _) ->
+    io:format("corrupt file, try export it again\n", []).
 
 
 create_sprite_file(Dir, Filename) ->
-    Files0 = filelib:wildcard("*.bmp", Dir),
+    Files0 = filelib:wildcard("*.png", Dir),
     Files = [filename:join([Dir, File]) || File <- Files0],
     Bin = create_bin(Files, Dir),
     file:write_file(Filename, Bin).
@@ -155,8 +159,20 @@ create_bin(Files, Dir) ->
     create_bin(Files, Dir, 1, <<>>).
 
 create_bin([File | Files], Dir, Num, Acc) ->
-    Image = wxImage:new(File),
+    TmpImage = wxImage:new(File),
+    Bmp = wxBitmap:new(TmpImage),
+    wxImage:destroy(TmpImage),
+    Image = wxBitmap:convertToImage(Bmp),
+    wxBitmap:destroy(Bmp),
+    case wxImage:hasAlpha(Image) of
+	true ->
+	    Alpha = wxImage:getAlpha(Image);
+	false ->
+	    wxImage:initAlpha(Image),
+	    Alpha = wxImage:getAlpha(Image)
+    end,
     Data = wxImage:getData(Image),
+    io:format("~p\n", [Data]),
     case filename:rootname(filename:basename(File)) of
 	"qmark" ->
 	    Id = $?;
@@ -167,7 +183,9 @@ create_bin([File | Files], Dir, Num, Acc) ->
 	   (wxImage:getWidth(Image)):16/unsigned-integer,
 	   (wxImage:getHeight(Image)):16/unsigned-integer,
 	   (byte_size(Data)):16/unsigned-integer,
-	   Data/binary>>,
+	   Data/binary,
+	   (byte_size(Alpha)):16/unsigned-integer,
+	   Alpha/binary>>,
     create_bin(Files, Dir, Num+1, <<Acc/binary, Bin/binary>>);
 create_bin([], _Dir, Num, Acc) ->
     <<Num:16/unsigned-integer, Acc/binary>>.
