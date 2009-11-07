@@ -18,10 +18,13 @@
 		options,
 		timer,
 		snake,
+		grow,
+		direction,
 		apple}).
 
 start() ->
-    start([]).
+    Options = [],
+    start(Options).
 
 start(Options) ->
     wx:new(),
@@ -34,7 +37,8 @@ start_link(Options) ->
     wx:new(),
     wx_object:start_link(?MODULE, Options, []).
 
-init(_Options) ->
+init(Options) ->
+    Options = parse_options(Options),
     Frame = wxFrame:new(wx:null(), ?wxID_ANY, "Snake", [{size, {800,800}}]),
 
     Menu = wxMenu:new(),
@@ -50,19 +54,38 @@ init(_Options) ->
 
     GLAttrib = [{attribList, [?WX_GL_RGBA,?WX_GL_DOUBLEBUFFER,0]}],
     Canvas = wxGLCanvas:new(Frame, GLAttrib),
+    wxGLCanvas:connect(Canvas, key_down, []),
 
     {ok, Timer} = timer:send_interval(200, refresh),
+    {ok, Timer2} = timer:send_interval(50, move),
+    {ok, Timer3} = timer:send_interval(500, grow),
     wxFrame:show(Frame),
     wxGLCanvas:setCurrent(Canvas),
 
     init_gl(Canvas),
-    put(quadric, glu:newQuadric()),
 
     {Frame, #state{frame = Frame,
 		   canvas = Canvas,
-		   timer = Timer,
-		   snake = {[{1,1},{2,1}], []},
-		   apple = {4,3}}}.
+		   timer = [Timer, Timer2, Timer3],
+		   options = Options,
+		   snake = {[{100,100},{100,110},{100,120},{100,130}], []},
+		   grow = false,
+		   direction = up,
+		   apple = {44,39}}}.
+
+parse_options(Options) ->
+    parse_options(Options, []).
+
+parse_options([{grid, Size={W,H}}|Options], Acc) when is_integer(W),
+						      is_integer(H) ->
+    parse_options(Options, [{grid_size, Size}|Acc]);
+parse_options([Lines={lines, {V,H}}|Options], Acc) when is_integer(V),
+							is_integer(H) ->
+    parse_options(Options, [Lines|Acc]);
+parse_options([_|Options], Acc) ->
+    parse_options(Options, Acc);
+parse_options([], Acc) ->
+    Acc.
 
 init_gl(Canvas) ->
     {W,H} = wxWindow:getClientSize(Canvas),
@@ -88,6 +111,19 @@ init_gl(Canvas) ->
 handle_event(#wx{event = #wxSize{size = Size}},State) ->
     resize(Size),
     draw(State),
+    {noreply, State};
+handle_event(#wx{event = #wxKey{type = key_down, keyCode = KeyCode}}, State) ->
+    Direction = 
+	case KeyCode of
+	    ?WXK_LEFT  -> left;
+	    ?WXK_RIGHT -> right;
+	    ?WXK_UP    -> up;
+	    ?WXK_DOWN  -> down;
+	    _          -> State#state.direction
+	end,
+    {noreply, State#state{direction = Direction}};
+handle_event(Wx = #wx{},State) ->
+    io:format("~p\n", [Wx]),
     {noreply, State}.
 
 handle_call(_,_,State) ->
@@ -96,6 +132,13 @@ handle_call(_,_,State) ->
 handle_info(refresh, State) ->
     draw(State),
     {noreply, State};
+handle_info(move, State) ->
+    State2 = check_tail(State),
+    State3 = move_snake(State2),
+    draw(State3),
+    {noreply, State3};
+handle_info(grow, State) ->
+    {noreply, State#state{grow = true}};
 handle_info(_Msg, State) ->
     {noreply, State}.
 
@@ -103,8 +146,8 @@ handle_info(_Msg, State) ->
 code_change(_,_,State) ->
     {noreply, State}.
 
-terminate(_,_State) ->
-    ok.
+terminate(_,State) ->
+    lists:foreach(fun(Timer) -> timer:cancel(Timer) end, State#state.timer).
 
 resize({W, H}) ->
     gl:viewport(0,0,W,H),
@@ -115,26 +158,22 @@ resize({W, H}) ->
     gl:loadIdentity(),
     ok.
 
-draw(#state{canvas = Canvas, snake = Snake, apple = Apple}) ->
+draw(S=#state{canvas = Canvas, snake = Snake, apple = Apple}) ->
     gl:clear(?GL_COLOR_BUFFER_BIT),
 
     gl:matrixMode(?GL_MODELVIEW),
     gl:loadIdentity(),
 
     {W,H} = wxGLCanvas:getSize(Canvas),
-    GridPos = draw_grid(W,H),
+    GridPos = draw_grid(W,H, S#state.options),
     draw_snake(Snake, GridPos),
     draw_apple(Apple, GridPos),
     wxGLCanvas:swapBuffers(Canvas).
 
--define(SQUARE_H, 20).
--define(SQUARE_W, 20).
--define(LINES_V, 20).
--define(LINES_H, 20).
 
-draw_grid(W,H) ->
-    GridW = ?SQUARE_W * ?LINES_V,
-    GridH = ?SQUARE_H * ?LINES_H,
+draw_grid(W,H, Options) ->
+    {GridW, GridH} = proplists:get_value(grid_size, Options, {300,300}),
+    {LinesV, LinesH} = proplists:get_value(lines, Options, {20,20}),
     GridPosX = (W-GridW) div 2,
     GridPosY =  (H-GridH) div 2,
     gl:pushMatrix(),
@@ -143,16 +182,16 @@ draw_grid(W,H) ->
     gl:color3ub(0,0,0),
     FunV =
 	fun(Pos) ->
-		gl:vertex2i(Pos * (GridW div ?LINES_V),0),
-		gl:vertex2i(Pos * (GridW div ?LINES_V),GridH)
+		gl:vertex2i(Pos * (GridW div LinesV),0),
+		gl:vertex2i(Pos * (GridW div LinesV),GridH)
 	end,
     FunH =
 	fun(Pos) ->
-		gl:vertex2i(0,    Pos * (GridH div ?LINES_H)),
-		gl:vertex2i(GridW,Pos * (GridH div ?LINES_H))
+		gl:vertex2i(0,    Pos * (GridH div LinesH)),
+		gl:vertex2i(GridW,Pos * (GridH div LinesH))
 	end,
-    wx:foreach(FunV, lists:seq(0, ?LINES_V)),
-    wx:foreach(FunH, lists:seq(0, ?LINES_H)),
+    wx:foreach(FunV, lists:seq(0, LinesV)),
+    wx:foreach(FunH, lists:seq(0, LinesH)),
     gl:'end'(),
     gl:popMatrix(),
     {GridPosX,GridPosY}.
@@ -164,13 +203,13 @@ draw_snake([{X,Y}|Rest], GridPos = {GridX, GridY}) ->
     gl:pushMatrix(),
     gl:color3ub(0,0,0),
     gl:translatef(GridX,GridY,0),
-    gl:translatef((X-1)*?SQUARE_W,(Y-1)*?SQUARE_H,0),
+    gl:translatef(X-1, Y-1, 0),
     gl:'begin'(?GL_QUADS),
  
     gl:vertex2i(0, 0),
-    gl:vertex2i(0, ?SQUARE_H),
-    gl:vertex2i(?SQUARE_W, ?SQUARE_H),
-    gl:vertex2i(?SQUARE_W, 0),
+    gl:vertex2i(0, 10),
+    gl:vertex2i(10,10),
+    gl:vertex2i(10, 0),
     
     gl:'end'(),
     gl:popMatrix(),
@@ -182,13 +221,13 @@ draw_apple({X,Y}, {GridX, GridY}) ->
     gl:pushMatrix(),
     gl:color3ub(230,50,50),
     gl:translatef(GridX,GridY,0),
-    gl:translatef((X-1)*?SQUARE_W,(Y-1)*?SQUARE_H,0),
+    gl:translatef(X-1, Y-1, 0),
     gl:'begin'(?GL_QUADS),
 
     gl:vertex2i(0, 0),
-    gl:vertex2i(0, ?SQUARE_H),
-    gl:vertex2i(?SQUARE_W, ?SQUARE_H),
-    gl:vertex2i(?SQUARE_W, 0),
+    gl:vertex2i(0, 10),
+    gl:vertex2i(10, 10),
+    gl:vertex2i(10, 0),
 
     gl:'end'(),
     gl:popMatrix().
@@ -196,6 +235,43 @@ draw_apple({X,Y}, {GridX, GridY}) ->
 
 
 
+
+
+
+move_snake(State = #state{snake = Snake = {[{X, Y} | _],
+					   _T}}) ->
+
+    Snake2 =
+	case State#state.direction of
+	    up ->
+		do_move_snake({X, Y -10}, Snake, State#state.grow);
+	    down ->
+		do_move_snake({X, Y +10}, Snake, State#state.grow);
+	    left ->
+		do_move_snake({X -10, Y}, Snake, State#state.grow);
+	    right ->
+		do_move_snake({X +10, Y}, Snake, State#state.grow)
+	end,
+    State#state{snake = Snake2, grow = false}.
+
+do_move_snake(NewHead, {Head,Tail}, false) ->
+    {[NewHead|Head], tl(Tail)};
+do_move_snake(NewHead, {Head,Tail}, true) ->
+    {[NewHead|Head], Tail}.
+
+
+check_tail(State = #state{snake = {Head, Tail}}) ->
+    [H | T] = Head,
+    case Tail of
+	[] ->
+	    State#state{snake = {[H], lists:reverse(T)}};
+	Any when is_list(Any)->
+	    State
+    end.
+
+get_random_apple({Width, Height}) ->
+    {random:uniform(0, Width),
+     random:uniform(0, Height)}.
 
 
 
