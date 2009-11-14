@@ -18,9 +18,16 @@
 		options,
 		timer,
 		snake,
+		mem,
 		grow,
 		direction,
 		apple}).
+
+-define(DEFAULT_SQUARE_W, 20).
+-define(DEFAULT_SQUARE_H, 20).
+-define(DEFAULT_LINES, {20,20}).
+-define(DEFAULT_GRID_SIZE, {300,300}).
+
 
 start() ->
     Options = [],
@@ -68,6 +75,7 @@ init(Options) ->
 		   canvas = Canvas,
 		   timer = [Timer, Timer2, Timer3],
 		   options = Options,
+		   mem = wx:create_memory(3),
 		   snake = {[{100,100},{100,110},{100,120},{100,130}], []},
 		   grow = false,
 		   direction = up,
@@ -133,7 +141,7 @@ handle_info(refresh, State) ->
     draw(State),
     {noreply, State};
 handle_info(move, State) ->
-    State2 = check_tail(State),
+    State2 = check_snake(State),
     State3 = move_snake(State2),
     draw(State3),
     {noreply, State3};
@@ -163,7 +171,6 @@ draw(S=#state{canvas = Canvas, snake = Snake, apple = Apple}) ->
 
     gl:matrixMode(?GL_MODELVIEW),
     gl:loadIdentity(),
-
     {W,H} = wxGLCanvas:getSize(Canvas),
     GridPos = draw_grid(W,H, S#state.options),
     draw_snake(Snake, GridPos),
@@ -172,14 +179,14 @@ draw(S=#state{canvas = Canvas, snake = Snake, apple = Apple}) ->
 
 
 draw_grid(W,H, Options) ->
-    {GridW, GridH} = proplists:get_value(grid_size, Options, {300,300}),
-    {LinesV, LinesH} = proplists:get_value(lines, Options, {20,20}),
+    {GridW, GridH} = proplists:get_value(grid_size, Options, ?DEFAULT_GRID_SIZE),
+    {LinesV, LinesH} = proplists:get_value(lines, Options, ?DEFAULT_LINES),
     GridPosX = (W-GridW) div 2,
     GridPosY =  (H-GridH) div 2,
     gl:pushMatrix(),
     gl:translatef(GridPosX, GridPosY, 0),
     gl:'begin'(?GL_LINES),
-    gl:color3ub(0,0,0),
+    gl:color3ub(0,255,0),
     FunV =
 	fun(Pos) ->
 		gl:vertex2i(Pos * (GridW div LinesV),0),
@@ -201,10 +208,10 @@ draw_snake({Head, Tail}, GridPos) ->
     draw_snake(Tail, GridPos);
 draw_snake([{X,Y}|Rest], GridPos = {GridX, GridY}) ->
     gl:pushMatrix(),
-    gl:color3ub(0,0,0),
     gl:translatef(GridX,GridY,0),
     gl:translatef(X-1, Y-1, 0),
     gl:'begin'(?GL_QUADS),
+    gl:color3ub(0,0,255),
  
     gl:vertex2i(0, 0),
     gl:vertex2i(0, 10),
@@ -219,10 +226,10 @@ draw_snake([], _) ->
 
 draw_apple({X,Y}, {GridX, GridY}) ->
     gl:pushMatrix(),
-    gl:color3ub(230,50,50),
     gl:translatef(GridX,GridY,0),
     gl:translatef(X-1, Y-1, 0),
     gl:'begin'(?GL_QUADS),
+    gl:color3ub(230,50,50),
 
     gl:vertex2i(0, 0),
     gl:vertex2i(0, 10),
@@ -260,18 +267,31 @@ do_move_snake(NewHead, {Head,Tail}, true) ->
     {[NewHead|Head], Tail}.
 
 
-check_tail(State = #state{snake = {Head, Tail}}) ->
-    [H | T] = Head,
+check_snake(State = #state{snake = {Head, Tail},
+			   apple = {AX,AY}}) ->
+    [H={X,Y} | T] = Head,
+    State2 =
+	if X >= AX, X =< AX+10,
+	   Y >= AY, Y =< AY+10 ->
+		Size = proplists:get_value(grid_size, State#state.options, {300,300}),
+		State#state{grow = true, apple = get_random_apple(Size)};
+	   X+10 =< AX+10, X+10 >= AX,
+	   Y+10 =< AY+10, Y+10 >= AY ->
+		Size = proplists:get_value(grid_size, State#state.options, {300,300}),
+		State#state{grow = true, apple = get_random_apple(Size)};
+	   true ->
+		State
+	end,
     case Tail of
 	[] ->
-	    State#state{snake = {[H], lists:reverse(T)}};
+	    State2#state{snake = {[H], lists:reverse(T)}};
 	Any when is_list(Any)->
-	    State
+	    State2
     end.
 
 get_random_apple({Width, Height}) ->
-    {random:uniform(0, Width),
-     random:uniform(0, Height)}.
+    {random:uniform(Width),
+     random:uniform(Height)}.
 
 
 
