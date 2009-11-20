@@ -7,7 +7,7 @@
 %%%-------------------------------------------------------------------
 -module(xtea).
 
--export([encrypt/2,decrypt/2,test/0]).
+-export([encrypt/2,decrypt/2,test/0, fill_padding_bytes/1]).
 
 -include("tibia.hrl").
 
@@ -65,10 +65,15 @@ do_encrypt(Key,Sum, V0,V1, Rounds) when Rounds < 32 ->
     
 %% This is a function to test the encrypt/decrypt functionality
 test() ->
+    Msg = <<"This is a test decrypt/encrypt!!">>,
+    io:format("The message: ~p\n", [Msg]),
     Key = #key{k1 = 3404669412, k2 = 1292174806,
 	       k3 = 1431840963, k4 = 1813482075},
-    Encrypted = encrypt(Key,<<"This is a test decrypt/encrypt!!">>),
-    decrypt(Key,Encrypted).
+    io:format("The Key:     ~p\n", [Key]),
+    Encrypted = encrypt(Key,Msg),
+    io:format("The encrypted text: ~p\n", [Encrypted]),
+    Decrypted = decrypt(Key,Encrypted),
+    io:format("The decrypted text: ~p\n", [Decrypted]).
 
 
 %%%%%%%%%%%%%%%%%%%%%

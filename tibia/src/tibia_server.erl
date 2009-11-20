@@ -1,11 +1,11 @@
 %%%-------------------------------------------------------------------
-%%% File    : tibia_proxy.erl
+%%% File    : tibia_server.erl
 %%% Author  : Olle Mattsson <olle@zubat>
 %%% Description : 
 %%%
 %%% Created :  4 May 2009 by Olle Mattsson <olle@zubat>
 %%%-------------------------------------------------------------------
--module(tibia_proxy).
+-module(tibia_server).
 
 -compile(export_all).
 

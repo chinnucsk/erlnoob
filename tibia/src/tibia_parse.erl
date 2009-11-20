@@ -89,7 +89,13 @@ parse_client_packet(State, Packet) when State#state.account =:= undefined ->
     end;
 parse_client_packet(State=#state{player = P},
 		    <<_Checksum:32/?UINT,Msg/binary>>) ->
-    Decrypted = xtea:decrypt(State#state.key, Msg),
+    case State#state.key of
+	#key{} ->
+	    Decrypted = xtea:decrypt(State#state.key, Msg);
+	undefined ->
+	    Decrypted = Msg,
+	    io:format("Msg: ~p\n", [Msg])
+    end,
     <<Size:16/?UINT, Msg2:Size/binary,_/binary>> = Decrypted,
     <<RecvByte,  Data/binary>> = Msg2,
     case RecvByte of
@@ -113,13 +119,13 @@ parse_client_packet(State=#state{player = P},
 	    [C] = ets:lookup(creatures, P#player.id),
 	    Reply = tibia_message:move_creature(C, Dir),
 	    send(State, Reply);
-	16#64 -> %% Auto walk
-	    Path = tibia_message:auto_walk(Data),
-	    io:format("~p\n", [Data]),
-	    io:format("~w\n", [Path]),
-	    [C] = ets:lookup(creatures, P#player.id),
-	    spawn_link(tibia_message, do_auto_walk,
-		       [State, C, Path]);
+	%% 16#64 -> %% Auto walk
+	%%     Path = tibia_message:auto_walk(Data),
+	%%     io:format("~p\n", [Data]),
+	%%     io:format("~w\n", [Path]),
+	%%     [C] = ets:lookup(creatures, P#player.id),
+	%%     spawn_link(tibia_message, do_auto_walk,
+	%% 	       [State, C, Path]);
 	    
 %% 	Dir when Dir >= 16#6A, Dir =< 16#6D ->
 %% 	    [C] = ets:lookup(creatures, P#player.name),

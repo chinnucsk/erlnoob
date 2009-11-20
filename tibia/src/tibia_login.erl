@@ -58,6 +58,7 @@ parse_login_package(State, <<_:12/binary,Msg:128/binary>>) ->
 
 parse_first_game_packet(State, Msg) ->
     Decrypted = crypto:rsa_private_decrypt(Msg, [?e, ?n, ?d], rsa_no_padding),
+    io:format("Decrypted: ~p\n", [Decrypted]),
     <<0:8/?UINT,K1:32/?UINT,K2:32/?UINT,
      K3:32/?UINT,K4:32/?UINT,_GameMasterLogin:8/?UINT,
      AccSize:16/?UINT,Acc:AccSize/binary,
@@ -75,7 +76,7 @@ parse_first_game_packet(State, Msg) ->
 	    io:format("Couldnt find player: ~p\n", [Name]),
 	    Player = error,
 	    Pos=X=Y= error,
-	    tibia_proxy:disconnect(State,
+	    tibia_server:disconnect(State,
 				   <<"You need to create a character.">>)
     end,
     Id = set_id(player),
@@ -183,7 +184,7 @@ parse_first_game_packet(State, Msg) ->
 
 check_account(State, Acc, Pass) ->
     if byte_size(Acc) =:= 0 ->
-	    tibia_proxy:disconnect(State,
+	    tibia_server:disconnect(State,
 				   <<"You need to enter an account number.">>);
        true ->
 	    ignore
@@ -193,7 +194,7 @@ check_account(State, Acc, Pass) ->
 	{atomic, [Account]} ->
 	    State#state{account = Account};
 	{atomic, []} ->
-	    tibia_proxy:disconnect(State,
+	    tibia_server:disconnect(State,
 				   <<"Account name or password is incorrect.">>)
     end.
 

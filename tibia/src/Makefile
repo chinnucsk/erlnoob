@@ -10,7 +10,7 @@ MODULES = \
 	tibia_login\
 	tibia_message\
 	tibia_parse\
-	tibia_proxy\
+	tibia_server\
 	tibia_monsters\
 	xtea
 
